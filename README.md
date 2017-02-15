@@ -118,7 +118,7 @@ The following steps are done when you run an embedded server:
 ## Known Issues
 If you are using [Npgsql](https://github.com/npgsql), when you execute the server, you may sporadically notice the following exception
 
-> Npgsql.NpgsqlException : Unable to write data to the transport connection: An existing connection was forcibly closed by the remote host. An existing connection was forcibly closed by the remote host
+> Npgsql.NpgsqlException : Unable to write data to the transport connection: An existing connection was forcibly closed by the remote host.
 
 Refer https://github.com/npgsql/npgsql/issues/939 to know details. Resolution is to use `Pooling=false` in connection string.
 
