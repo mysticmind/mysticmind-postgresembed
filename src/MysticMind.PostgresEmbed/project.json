@@ -12,8 +12,10 @@
     "tags": [
       "postgres",
       "postgresql",
-      "postgres embed",
-      "postgres embedded server",
+      "pg",
+      "embed",
+      "embedded",
+      "server",
       ".net 4.6",
       "net 4.6",
       "net46",
