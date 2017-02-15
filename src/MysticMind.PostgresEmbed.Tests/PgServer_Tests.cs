@@ -42,6 +42,15 @@ namespace MysticMind.PostgresEmbed.Tests
             // set generic query optimizer to off
             serverParams.Add("geqo", "off");
 
+            // set timezone as UTC
+            serverParams.Add("timezone", "UTC");
+
+            // switch off synchronous commit
+            serverParams.Add("synchronous_commit", "off");
+
+            // set max connections
+            serverParams.Add("max_connections", "300");
+
             using (var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1", pgServerParams: serverParams))
             {
                 server.Start();
