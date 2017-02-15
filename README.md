@@ -86,6 +86,7 @@ using (var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1", pgServerPar
 - `postgres` is the default database created
 - `postgres` is the default user (super user) to be used for connection
 - Trust authentication is the default authentication. You can pass any password in connection string which will be ignored by the server. Since our primary motivation is to use the server for unit tests on localhost, this is pretty fine to keep it simple.
+- If you has passed `DbDir` path while creating the server then it will be used as the working directory else it will use the current directory. You will find a folder named `pg_embed` within which the `binaries` and instance folders are created.
 - If you would want to validate something on an instance, you could pass `clearInstanceDir=false` while creating the server. This won't delete the folder after the execution and tear down of the server. You can manually start the server using `pg_ctl.exe` available within the pgsql bin directory and connect using any Postgres client.  
 
 ## How it works
