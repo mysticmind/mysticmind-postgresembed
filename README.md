@@ -70,12 +70,6 @@ using (var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1", pgExtension
 ```
 var serverParams = new Dictionary<string, string>();
             
-// set log connections to true
-serverParams.Add("log_connections", "yes");
-
-// set log destination
-serverParams.Add("log_destination", "'syslog'");
-
 // set generic query optimizer to off
 serverParams.Add("geqo", "off");
 
@@ -117,20 +111,17 @@ If you are using [Npgsql](https://github.com/npgsql), when you execute the serve
 > Npgsql.NpgsqlException : Unable to write data to the transport connection: An existing connection was forcibly closed by the remote host. An existing connection was forcibly closed by the remote host
 
 Refer https://github.com/npgsql/npgsql/issues/939 to know details. Resolution is to use `Pooling=false` in connection string as below:
-```
-string connStr = $"Server=localhost;Port={server.Port};User Id=postgres;Password=test;Database=postgres;Pooling=false";
-```
 
 ## Pending Tasks
 Wire up CI via Appveyor and releasing Nuget package.
 
 ## Acknowledgements
 - This project uses the Postgres binaries published via [PostgreSql.Binaries.Lite](https://github.com/mihasic/PostgreSql.Binaries.Lite).
+
 - Looked at projects [Yandex Embedded PostgresSQL](https://github.com/yandex-qatools/postgresql-embedded) and [OpenTable Embedded PostgreSQL Component](https://github.com/opentable/otj-pg-embedded) while brainstorming the implementation.
-- 
  
 ## License
-MysticMind.PostgresEmbed is licensed under [MIT License](http://www.opensource.org/licenses/mit-license.php). Refer to license.txt for more information.
+MysticMind.PostgresEmbed is licensed under [MIT License](http://www.opensource.org/licenses/mit-license.php). Refer to [License file](https://github.com/mysticmind/mysticmind-postgresembed/blob/master/LICENSE) for more information.
 
 Copyright © 2017 Babu Annamalai
 
