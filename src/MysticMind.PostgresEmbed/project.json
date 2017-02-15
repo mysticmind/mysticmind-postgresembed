@@ -1,0 +1,59 @@
+{
+  "version": "0.1.0",
+  "title": "MysticMind.PostgresEmbed",
+  "description": "Postgresql embedded server equivalent for .Net applications",
+  "authors": [ "Babu Annamalai" ],
+  "copyright": "Copyright (C) Babu Annamalai",
+  "packOptions": {
+    "summary": "This is a library for running a Postgres server embedded equivalent including extensions targeting Windows x64. This project also handles Postgres extensions very well with a neat way to configure and use it.",
+    "owners": [
+      "Babu Annamalai"
+    ],
+    "tags": [
+      "postgres",
+      "postgresql",
+      "postgres embed",
+      "postgres embedded server",
+      ".net 4.6",
+      "net 4.6",
+      "net46",
+      ".net core",
+      "net core",
+      "netcore",
+      "netcore 1.0",
+      "netcore rtm"
+    ],
+    "repository": {
+      "url": "https://github.com/mysticmind/mysticmind-postgresembed"
+    },
+    "licenseUrl": "https://github.com/mysticmind/mysticmind-postgresembed/blob/master/LICENSE",
+    "requireLicenseAcceptance": false
+  },
+  "dependencies": {
+    "Polly": "5.0.5",
+    "System.Diagnostics.Process": "4.3.0",
+    "System.IO.Compression.ZipFile": "4.3.0",
+    "System.Net.NetworkInformation": "4.3.0",
+    "System.Net.Http": "4.3.0",
+    "System.Threading.Thread": "4.3.0"
+  },
+
+  "frameworks": {
+    "netcoreapp1.0": {
+      "dependencies": {
+        "NETStandard.Library": "1.6.0",
+        "System.IO.Compression": "4.3.0"
+      }
+    },
+    "net46": {
+      "dependencies": {
+        "System.IO": "4.0.10",
+        "System.Runtime": "4.0.20",
+        "System.Threading.Tasks": "4.0.10"
+      },
+      "frameworkAssemblies": {
+        "System.IO.Compression": "4.0.0.0"
+      }
+    }
+  }
+}

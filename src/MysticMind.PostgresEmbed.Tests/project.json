@@ -1,0 +1,30 @@
+{
+  "testRunner": "xunit",
+
+  "dependencies": {
+    "dotnet-test-xunit": "2.2.0-preview2-build1029",
+    "MysticMind.PostgresEmbed": { "target": "project" },
+    "Npgsql": "3.2.1",
+    "xunit": "2.2.0-beta5-build3474"
+  },
+
+  "frameworks": {
+    "netcoreapp1.0": {
+      "dependencies": {
+        "Microsoft.NETCore.App": {
+          "type": "platform",
+          "version": "1.0.0-*"
+        },
+        "System.Runtime.Extensions": "4.3.0"
+      }
+    },
+    "net46": {
+      "dependencies": {
+        "System.Runtime.Extensions": "4.0.10"
+      },
+      "frameworkAssemblies": {
+        "System.Data": "4.0.0.0"
+      }
+    }
+  }
+}
