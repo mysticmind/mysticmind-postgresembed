@@ -110,7 +110,7 @@ If you are using [Npgsql](https://github.com/npgsql), when you execute the serve
 
 > Npgsql.NpgsqlException : Unable to write data to the transport connection: An existing connection was forcibly closed by the remote host. An existing connection was forcibly closed by the remote host
 
-Refer https://github.com/npgsql/npgsql/issues/939 to know details. Resolution is to use `Pooling=false` in connection string as below:
+Refer https://github.com/npgsql/npgsql/issues/939 to know details. Resolution is to use `Pooling=false` in connection string.
 
 ## Pending Tasks
 Wire up CI via Appveyor and releasing Nuget package.
