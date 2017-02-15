@@ -1,7 +1,7 @@
 {
   "version": "0.1.0",
   "title": "MysticMind.PostgresEmbed",
-  "description": "Postgresql embedded server equivalent for .Net applications",
+  "description": "Postgres embedded server equivalent for .Net applications",
   "authors": [ "Babu Annamalai" ],
   "copyright": "Copyright (C) Babu Annamalai",
   "packOptions": {
