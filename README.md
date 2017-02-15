@@ -119,6 +119,8 @@ Wire up CI via Appveyor and releasing Nuget package.
 - This project uses the Postgres binaries published via [PostgreSql.Binaries.Lite](https://github.com/mihasic/PostgreSql.Binaries.Lite).
 
 - Looked at projects [Yandex Embedded PostgresSQL](https://github.com/yandex-qatools/postgresql-embedded) and [OpenTable Embedded PostgreSQL Component](https://github.com/opentable/otj-pg-embedded) while brainstorming the implementation.
+
+Note that the above projects has only dealt with Postgres binary and none had options to deal with the Postgres extensions.
  
 ## License
 MysticMind.PostgresEmbed is licensed under [MIT License](http://www.opensource.org/licenses/mit-license.php). Refer to [License file](https://github.com/mysticmind/mysticmind-postgresembed/blob/master/LICENSE) for more information.
