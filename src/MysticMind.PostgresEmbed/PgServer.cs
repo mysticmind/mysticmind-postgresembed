@@ -144,37 +144,34 @@ namespace MysticMind.PostgresEmbed
             Directory.CreateDirectory(BinariesDir);
             Directory.CreateDirectory(PgDir);
             Directory.CreateDirectory(DataDir);
-
-            // clear working directory if a flag is passed
-            RemoveWorkingDir();
         }
 
         private void RemoveWorkingDir()
         {
-            if (_clearWorkingDir)
+            try
             {
-                try
+                if (_clearWorkingDir)
                 {
                     Directory.Delete(DbDir, true);
                 }
-                catch
-                {
-                }
+            }
+            catch
+            {
             }
         }
 
         private void RemoveInstanceDir()
         {
-            if (_clearInstanceDir)
+            try
             {
-                try
+                if (_clearInstanceDir)
                 {
                     Directory.Delete(InstanceDir, true);
                 }
-                catch
-                {
-                }
             }
+            catch
+            {
+            }   
         }
 
         private void ExtractPgBinary()
@@ -343,7 +340,7 @@ namespace MysticMind.PostgresEmbed
             {
                 Utils.RunProcess(filename, args);
             }
-            catch (Exception)
+            catch
             {
             }
         }
@@ -361,9 +358,14 @@ namespace MysticMind.PostgresEmbed
 
         public void Start()
         {
+            // clear working directory based on flag passed
+            RemoveWorkingDir();
+
             CreateDirs();
+
             DownloadPgBinary();
             DownloadPgExtensions();
+
             ExtractPgBinary();
             ExtractPgExtensions();
 
@@ -377,6 +379,8 @@ namespace MysticMind.PostgresEmbed
         {
             StopServer();
             KillServerProcess();
+
+            // clear instance directory based on flag passed
             RemoveInstanceDir();
         }
 
