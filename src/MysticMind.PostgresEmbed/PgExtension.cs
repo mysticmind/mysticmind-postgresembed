@@ -18,6 +18,10 @@ namespace MysticMind.PostgresEmbed
 
         private int _pgPort;
 
+        private string _pgUser;
+
+        private string _pgDbName;
+
         private string _binariesDir;
 
         private string _pgDir;
@@ -30,6 +34,8 @@ namespace MysticMind.PostgresEmbed
             string pgVersion,
             string pghost,
             int pgPort,
+            string pgUser,
+            string pgDbName,
             string binariesDir,
             string pgDir,
             PgExtensionConfig config)
@@ -37,6 +43,9 @@ namespace MysticMind.PostgresEmbed
             _pgVersion = pgVersion;
             _pgHost = pghost;
             _pgPort = pgPort;
+            _pgUser = pgUser;
+            _pgDbName = pgDbName;
+
             _binariesDir = binariesDir;
             _pgDir = pgDir;
             _config = config;
@@ -98,6 +107,12 @@ namespace MysticMind.PostgresEmbed
 
             // add port
             args.Add($"-p {_pgPort}");
+
+            // add user
+            args.Add($"-U {_pgUser}");
+
+            // add database name
+            args.Add($"-d {this._pgDbName}");
 
             // add command
             args.Add($"-c \"{sql}\"");

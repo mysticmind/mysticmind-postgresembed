@@ -9,18 +9,24 @@ using Polly;
 
 namespace MysticMind.PostgresEmbed.Tests
 {
+    using NuGet.Versioning;
+
     public class PgServer_Tests
     {
+        // since CI builds are run on Appveyor, we will use the appveyor user
+        private const string PG_USER = "appveyor";
+        private const string CONN_STR = "Server=localhost;Port={0};User Id={1};Password=test;Database=postgres;Pooling=false";
+
         [Fact]
         public void create_server_and_table_test()
         {
-            using (var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1"))
+            using (var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1", PG_USER))
             {
                 server.Start();
                 
                 // Note: set pooling to false to prevent connecting issues
                 // https://github.com/npgsql/npgsql/issues/939
-                string connStr = $"Server=localhost;Port={server.Port};User Id=postgres;Password=test;Database=postgres;Pooling=false";
+                string connStr = string.Format(CONN_STR, server.Port, PG_USER);
                 var conn = new Npgsql.NpgsqlConnection(connStr);
                 var cmd =
                     new Npgsql.NpgsqlCommand(
@@ -51,13 +57,13 @@ namespace MysticMind.PostgresEmbed.Tests
             // set max connections
             serverParams.Add("max_connections", "300");
 
-            using (var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1", pgServerParams: serverParams))
+            using (var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1", PG_USER, pgServerParams: serverParams))
             {
                 server.Start();
 
                 // Note: set pooling to false to prevent connecting issues
                 // https://github.com/npgsql/npgsql/issues/939
-                string connStr = $"Server=localhost;Port={server.Port};User Id=postgres;Password=test;Database=postgres;Pooling=false";
+                string connStr = string.Format(CONN_STR, server.Port, PG_USER);
                 var conn = new Npgsql.NpgsqlConnection(connStr);
                 var cmd =
                     new Npgsql.NpgsqlCommand(
@@ -74,12 +80,12 @@ namespace MysticMind.PostgresEmbed.Tests
         [Fact]
         public void create_server_without_using_block()
         {
-            var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1");
+            var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1", PG_USER);
 
             try
             {    
                 server.Start();
-                string connStr = $"Server=localhost;Port={server.Port};User Id=postgres;Password=test;Database=postgres";
+                string connStr = string.Format(CONN_STR, server.Port, PG_USER);
                 var conn = new Npgsql.NpgsqlConnection(connStr);
                 var cmd =
                     new Npgsql.NpgsqlCommand(
@@ -106,7 +112,7 @@ namespace MysticMind.PostgresEmbed.Tests
                     new List<string> { "CREATE EXTENSION plv8" }
                 ));
 
-            using (var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1", pgExtensions: extensions))
+            using (var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1", PG_USER, pgExtensions: extensions))
             {
                 server.Start();
             }
@@ -126,7 +132,7 @@ namespace MysticMind.PostgresEmbed.Tests
                         }
                 ));
 
-            using (var server = new MysticMind.PostgresEmbed.PgServer("9.6.2.1", pgExtensions: extensions))
+            using (var server = new MysticMind.PostgresEmbed.PgServer("9.6.2.1", PG_USER, pgExtensions: extensions))
             {
                 server.Start();
             }

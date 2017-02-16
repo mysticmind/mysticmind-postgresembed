@@ -13,6 +13,8 @@ namespace MysticMind.PostgresEmbed
 
         private const string PG_HOST = "localhost";
 
+        private const string PG_DBNAME = "postgres";
+
         private const string PG_STOP_WAIT_S = "5";
 
         private const int PG_STARTUP_WAIT_MS = 10 * 1000;
@@ -43,6 +45,7 @@ namespace MysticMind.PostgresEmbed
 
         public PgServer(
             string pgVersion,
+            string pgUser = PG_SUPERUSER,
             string dbDir = "",
             int port = 0,
             Dictionary<string, string> pgServerParams = null,
@@ -51,6 +54,15 @@ namespace MysticMind.PostgresEmbed
             bool clearWorkingDir=false)
         {
             PgVersion = pgVersion;
+
+            if (String.IsNullOrEmpty(pgUser))
+            {
+                PgUser = PG_SUPERUSER;
+            }
+            else
+            {
+                PgUser = pgUser;
+            }
 
             if (string.IsNullOrEmpty(dbDir))
             {
@@ -101,6 +113,8 @@ namespace MysticMind.PostgresEmbed
 
         public string PgVersion { get; private set; }
 
+        public string PgUser { get; private set; }
+
         public string DbDir { get; private set; }
 
         public string BinariesDir { get; private set; }
@@ -114,6 +128,14 @@ namespace MysticMind.PostgresEmbed
         public string DataDir { get; private set; }
 
         public int Port { get; private set; }
+
+        public string PgDbName
+        {
+            get
+            {
+                return PG_DBNAME; 
+            }
+        }
 
         private void DownloadPgBinary()
         {
@@ -133,7 +155,7 @@ namespace MysticMind.PostgresEmbed
         {
             foreach (var extnConfig in _pgExtensions)
             {
-                var pgExtensionInstance = new PgExtension(PgVersion, PG_HOST, Port, BinariesDir, PgDir, extnConfig);
+                var pgExtensionInstance = new PgExtension(PgVersion, PG_HOST, Port, PgUser, PgDbName, BinariesDir, PgDir, extnConfig);
                 _retryPolicy.Execute(() => pgExtensionInstance.Download());
             }
         }
@@ -183,7 +205,7 @@ namespace MysticMind.PostgresEmbed
         {
             foreach (var extnConfig in _pgExtensions)
             {
-                var pgExtensionInstance = new PgExtension(PgVersion, PG_HOST, Port, BinariesDir, PgDir, extnConfig);
+                var pgExtensionInstance = new PgExtension(PgVersion, PG_HOST, Port, PgUser, PgDbName, BinariesDir, PgDir, extnConfig);
                 _retryPolicy.Execute(() => pgExtensionInstance.Extract());
             }
         }
@@ -197,7 +219,7 @@ namespace MysticMind.PostgresEmbed
             args.Add($"-D {DataDir}");
 
             // add super user
-            args.Add($"-U {PG_SUPERUSER}");
+            args.Add($"-U {PgUser}");
 
             // add encoding
             args.Add("-E UTF-8");
@@ -221,7 +243,7 @@ namespace MysticMind.PostgresEmbed
         {
             foreach (var extnConfig in _pgExtensions)
             {
-                var pgExtensionInstance = new PgExtension(PgVersion, PG_HOST, Port, BinariesDir, PgDir, extnConfig);
+                var pgExtensionInstance = new PgExtension(PgVersion, PG_HOST, Port, PgUser, PgDbName, BinariesDir, PgDir, extnConfig);
                 _retryPolicy.Execute(() => pgExtensionInstance.CreateExtension());
             }
         }
@@ -237,6 +259,12 @@ namespace MysticMind.PostgresEmbed
 
             //add port
             args.Add($"-p {Port}");
+
+            //add  user
+            args.Add($"-U {PgUser}");
+
+            // add database name
+            args.Add($"-d {PgDbName}");
 
             // add command
             args.Add($"-c \"SELECT 1 as test\"");
@@ -254,7 +282,10 @@ namespace MysticMind.PostgresEmbed
 
             // add the data dir arg
             args.Add($"-D {DataDir}");
-            
+
+            // add user
+            args.Add($"-U {PgUser}");
+
             // create the init options arg
             var initOptions = new List<string>();
 
@@ -326,6 +357,9 @@ namespace MysticMind.PostgresEmbed
 
             // add data dir
             args.Add($"-D {DataDir}");
+
+            // add user
+            args.Add($"-U {PgUser}");
 
             // add stop mode
             args.Add($"-m {PG_STOP_MODE}");
