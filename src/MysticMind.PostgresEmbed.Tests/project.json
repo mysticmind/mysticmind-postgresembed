@@ -3,7 +3,7 @@
 
   "dependencies": {
     "dotnet-test-xunit": "2.2.0-preview2-build1029",
-    "MysticMind.PostgresEmbed": { "target": "project" },
+    "MysticMind.PostgresEmbed": "0.1.*",
     "Npgsql": "3.2.1",
     "xunit": "2.2.0-beta5-build3474"
   },
