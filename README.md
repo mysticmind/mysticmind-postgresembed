@@ -15,7 +15,7 @@ using (var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1"))
     server.Start();
     
     // using Npgsql to connect the server
-    string connStr = $"Server=localhost;Port={server.Port};User Id=postgres;Password=test;Database=postgres";
+    string connStr = $"Server=localhost;Port={server.PgPort};User Id=postgres;Password=test;Database=postgres";
     
     var conn = new Npgsql.NpgsqlConnection(connStr);
     
@@ -91,7 +91,7 @@ using (var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1", pgServerPar
 ```
 
 ## Few gotchas
-- You can pass a port parameter while creating instance. If you don't pass one, system will use a free port to start the server. Use `server.Port` to fetch the port used by the embedded server
+- You can pass a port parameter while creating instance. If you don't pass one, system will use a free port to start the server. Use `server.PgPort` to fetch the port used by the embedded server
 - `postgres` is the default database created
 - `postgres` is the default user (super user) to be used for connection
 - Trust authentication is the default authentication. You can pass any password in connection string which will be ignored by the server. Since our primary motivation is to use the server for unit tests on localhost, this is pretty fine to keep it simple.

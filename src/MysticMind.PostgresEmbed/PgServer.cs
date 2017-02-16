@@ -75,11 +75,11 @@ namespace MysticMind.PostgresEmbed
 
             if (port == 0)
             {
-                Port = Utils.GetAvailablePort();
+                PgPort = Utils.GetAvailablePort();
             }
             else
             {
-                Port = port;
+                PgPort = port;
             }
 
             if (pgServerParams != null)
@@ -127,7 +127,7 @@ namespace MysticMind.PostgresEmbed
 
         public string DataDir { get; private set; }
 
-        public int Port { get; private set; }
+        public int PgPort { get; private set; }
 
         public string PgDbName
         {
@@ -155,7 +155,7 @@ namespace MysticMind.PostgresEmbed
         {
             foreach (var extnConfig in _pgExtensions)
             {
-                var pgExtensionInstance = new PgExtension(PgVersion, PG_HOST, Port, PgUser, PgDbName, BinariesDir, PgDir, extnConfig);
+                var pgExtensionInstance = new PgExtension(PgVersion, PG_HOST, PgPort, PgUser, PgDbName, BinariesDir, PgDir, extnConfig);
                 _retryPolicy.Execute(() => pgExtensionInstance.Download());
             }
         }
@@ -205,7 +205,7 @@ namespace MysticMind.PostgresEmbed
         {
             foreach (var extnConfig in _pgExtensions)
             {
-                var pgExtensionInstance = new PgExtension(PgVersion, PG_HOST, Port, PgUser, PgDbName, BinariesDir, PgDir, extnConfig);
+                var pgExtensionInstance = new PgExtension(PgVersion, PG_HOST, PgPort, PgUser, PgDbName, BinariesDir, PgDir, extnConfig);
                 _retryPolicy.Execute(() => pgExtensionInstance.Extract());
             }
         }
@@ -243,7 +243,7 @@ namespace MysticMind.PostgresEmbed
         {
             foreach (var extnConfig in _pgExtensions)
             {
-                var pgExtensionInstance = new PgExtension(PgVersion, PG_HOST, Port, PgUser, PgDbName, BinariesDir, PgDir, extnConfig);
+                var pgExtensionInstance = new PgExtension(PgVersion, PG_HOST, PgPort, PgUser, PgDbName, BinariesDir, PgDir, extnConfig);
                 _retryPolicy.Execute(() => pgExtensionInstance.CreateExtension());
             }
         }
@@ -258,7 +258,7 @@ namespace MysticMind.PostgresEmbed
             args.Add($"-h {PG_HOST}");
 
             //add port
-            args.Add($"-p {Port}");
+            args.Add($"-p {PgPort}");
 
             //add  user
             args.Add($"-U {PgUser}");
@@ -293,7 +293,7 @@ namespace MysticMind.PostgresEmbed
             initOptions.Add("-F");
 
             //set the port
-            initOptions.Add($"-p {Port}");
+            initOptions.Add($"-p {PgPort}");
 
             // add the additional parameters passed
             initOptions.AddRange(_pgServerParams);

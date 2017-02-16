@@ -26,7 +26,7 @@ namespace MysticMind.PostgresEmbed.Tests
                 
                 // Note: set pooling to false to prevent connecting issues
                 // https://github.com/npgsql/npgsql/issues/939
-                string connStr = string.Format(CONN_STR, server.Port, PG_USER);
+                string connStr = string.Format(CONN_STR, server.PgPort, PG_USER);
                 var conn = new Npgsql.NpgsqlConnection(connStr);
                 var cmd =
                     new Npgsql.NpgsqlCommand(
@@ -63,7 +63,7 @@ namespace MysticMind.PostgresEmbed.Tests
 
                 // Note: set pooling to false to prevent connecting issues
                 // https://github.com/npgsql/npgsql/issues/939
-                string connStr = string.Format(CONN_STR, server.Port, PG_USER);
+                string connStr = string.Format(CONN_STR, server.PgPort, PG_USER);
                 var conn = new Npgsql.NpgsqlConnection(connStr);
                 var cmd =
                     new Npgsql.NpgsqlCommand(
@@ -85,7 +85,7 @@ namespace MysticMind.PostgresEmbed.Tests
             try
             {    
                 server.Start();
-                string connStr = string.Format(CONN_STR, server.Port, PG_USER);
+                string connStr = string.Format(CONN_STR, server.PgPort, PG_USER);
                 var conn = new Npgsql.NpgsqlConnection(connStr);
                 var cmd =
                     new Npgsql.NpgsqlCommand(
