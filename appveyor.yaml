@@ -1,0 +1,41 @@
+version: 0.1.{build}
+
+os: Visual Studio 2015
+
+configuration: Release
+
+platform: x64
+
+before_build:
+- cmd: >-
+    appveyor-retry dotnet restore -v Minimal
+
+    cd %APPVEYOR_BUILD_FOLDER%\src\build
+
+    npm install
+
+    node update-project-version.js ../MysticMind.PostgresEmbed/project.json %APPVEYOR_BUILD_VERSION%
+    node update-project-deps-version.js ../MysticMind.PostgresEmbed.Tests/project.json MysticMind.HtmlAgilityPack %APPVEYOR_BUILD_VERSION%
+
+    cd %APPVEYOR_BUILD_FOLDER%
+
+test_script:
+- ps: >-
+    cd src/MysticMind.PostgresEmbed.Tests
+
+    dotnet restore
+
+    dotnet test -f netcoreapp1.0 -c %CONFIGURATION%
+
+    dotnet test -f net46 -c %CONFIGURATION%
+
+after_build:
+- cmd: dotnet pack "src\MysticMind.PostgresEmbed" -c %CONFIGURATION% --no-build -o artifacts
+
+artifacts:
+- path: artifacts\**\*.*
+# deploy:
+# - provider: NuGet
+#   api_key:
+#     secure: 1XMgADnmiLunXwBT7K0CMDcHyoC5tUFE4Cf+X7VkuzoRZiWnIL2P9mP7oPEtGPHg
+#   skip_symbols: true
