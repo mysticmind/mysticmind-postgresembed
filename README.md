@@ -141,8 +141,12 @@ Note:
 2. You may not face this issue in development environments.
 1. This step was required to be enabled for Appveyor CI builds to succeed.
 
-## Pending Tasks
-Wire up CI via Appveyor and releasing Nuget package.
+## Appveyor CI builds
+Appveyor CI build  unit tests work for .netcoreapp1.0 but fails for .net 4.6 in the initdb step which is quite surprising. On local dev environments, I have confirmed that .net 4.6 build works fine. 
+
+Note that I have only enabled .netcoreapp1.0 unit tests on Appveyor in the interim.
+
+Nuget publish will contain publish packages for both .netcoreapp1.0 and .net 4.6.
 
 ## Acknowledgements
 - This project uses the Postgres binaries published via [PostgreSql.Binaries.Lite](https://github.com/mihasic/PostgreSql.Binaries.Lite).
