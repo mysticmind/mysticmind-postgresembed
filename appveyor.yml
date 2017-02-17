@@ -23,9 +23,7 @@ test_script:
 
     dotnet restore
 
-    dotnet test -f netcoreapp1.0 -c %CONFIGURATION%
-
-    dotnet test -f net46 -c %CONFIGURATION%
+    dotnet test -c %CONFIGURATION%
 
 after_build:
 - cmd: dotnet pack "src\MysticMind.PostgresEmbed" -c %CONFIGURATION% --no-build -o artifacts
