@@ -150,6 +150,7 @@ The following steps are done when you run an embedded server:
 - Binaries of configured Postgres version and the extensions are downloaded. 
 - For Postgres binary, nupkg of the published nuget package version is downloaded and the binary zip file is extracted from it
 - For Postgres extensions, file is downloaded from the configured url. You have to choose the right version of extension compatible with the Postgres version.
+- Since downloads from http endpoints can be flaky, retry logic is implemented with 3 retries for every file being downloaded.
 - Several steps are executed in order once you start the server 
 - All binaries zip files once downloaded are stored under `[specified db dir]\pg_embed\binaries` and reused on further runs.
 - Since each run of embedded server can possibly use a combination of Postgres version and extensions. Hence implemented a concept of an instance containing the extracted Postgres binary, extensions and db data. 
