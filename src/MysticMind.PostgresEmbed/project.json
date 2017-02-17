@@ -28,6 +28,7 @@
     "repository": {
       "url": "https://github.com/mysticmind/mysticmind-postgresembed"
     },
+    "projectUrl": "https://github.com/mysticmind/mysticmind-postgresembed",
     "licenseUrl": "https://github.com/mysticmind/mysticmind-postgresembed/blob/master/LICENSE",
     "requireLicenseAcceptance": false
   },
