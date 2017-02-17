@@ -7,7 +7,7 @@ This project uses the binaries published in Nuget package [PostgreSql.Binaries.L
 ## Usage
 
 ### Example of using Postgres binary
-```
+```csharp
 // using Postgres 9.5.5.1 with a using block
 using (var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1"))
 {
@@ -31,7 +31,7 @@ using (var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1"))
 ```
 
 ### Example of using Postgres and extensions
-```
+```csharp
 // Example of using Postgres 9.6.2.1 with extension PostGIS 2.3.2
 // you can add multiple create extension sql statements to be run
 var extensions = new List<PgExtensionConfig>();
@@ -51,7 +51,7 @@ using (var server = new MysticMind.PostgresEmbed.PgServer("9.6.2.1", pgExtension
 }
 ```
 
-```
+```csharp
 // Example of using Postgres 9.5.5.1 with extension PLV8
 var extensions = new List<PgExtensionConfig>();
 
@@ -67,7 +67,7 @@ using (var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1", pgExtension
 ```
 
 ### Example of passing additional server parameters
-```
+```csharp
 var serverParams = new Dictionary<string, string>();
             
 // set generic query optimizer to off
@@ -96,7 +96,7 @@ Since download and extraction of binaries take time, it would be good strategy t
 
 With xUnit, you will need to create a fixture and wire it as a class fixture. See code below:
 
-```
+```csharp
 // this example demonstrates writing an xUnit class fixture
 // implements IDisposable to help with the teardown logic.
 public class DatabaseServerFixture : IDisposable
