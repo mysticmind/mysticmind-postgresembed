@@ -90,6 +90,53 @@ using (var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1", pgServerPar
 }
 ```
 
+### Example of usage in unit tests (xUnit)
+
+Since download and extraction of binaries take time, it would be good strategy to setup and teardown the server for each unit tests class instance.
+
+With xUnit, you will need to create a fixture and wire it as a class fixture. See code below:
+
+```
+// this example demonstrates writing an xUnit class fixture
+// implements IDisposable to help with the teardown logic.
+public class DatabaseServerFixture : IDisposable
+    {
+        private static PgServer _pgServer;
+
+        public DatabaseServerFixture()
+        {
+            var pgExtensions = new List<PgExtensionConfig>();
+            pgExtensions.Add(
+                new PgExtensionConfig(
+                    "http://www.postgresonline.com/downloads/pg96plv8jsbin_w64.zip",
+                    new List<string> { "CREATE EXTENSION plv8" }));
+
+            _pgServer = new PgServer("9.6.2.1", port: 5432, pgExtensions: pgExtensions);
+            _pgServer.Start();
+        }
+
+        public void Dispose()
+        {
+            if (_pgServer != null)
+            {
+                _pgServer.Stop();
+            }
+        }
+    }
+    
+    // wire DatabaseServerFixture fixture as a class fixture 
+    // so that it is created once for the whole class 
+    // and shared across all unit tests within the class
+    public class my_db_tests : IClassFixture<DatabaseServerFixture>
+    {
+        [Fact]
+        public void your_test()
+        {
+            // add your test code
+        }
+    }
+```
+
 ## Few gotchas
 - You can pass a port parameter while creating instance. If you don't pass one, system will use a free port to start the server. Use `server.PgPort` to fetch the port used by the embedded server
 - `postgres` is the default database created
@@ -136,10 +183,10 @@ The fix is to pass a flag `addLocalUserAccessPermission` as `true` and the syste
 icacls.exe c:\pg_embed\aa60c634-fa20-4fa8-b4fc-a43a3b08aa99 /t /grant:r <user>:(OI)(OC)F
 ```
 
-Note: 
+Note:
 1. The local account should have rights to change folder permissions otherwise the operation will result in an exception.
 2. You may not face this issue in development environments.
-1. This step was required to be enabled for Appveyor CI builds to succeed.
+3. This step was required to be enabled for Appveyor CI builds to succeed.
 
 ## Appveyor CI builds
 Appveyor CI build  unit tests work for .netcoreapp1.0 but fails for .net 4.6 in the initdb step which is quite surprising. On local dev environments, I have confirmed that .net 4.6 build works fine. 
