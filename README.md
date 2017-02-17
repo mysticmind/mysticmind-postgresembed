@@ -116,11 +116,30 @@ The following steps are done when you run an embedded server:
 - Server  implements `IDisposable` to call Stop automatically within the context of a `using(..){...}` block. If using an unit test setup and teardown at the class level, you will call `Start()` and `Stop()` appropriately.
 
 ## Known Issues
+
+### Npgsql exception
 If you are using [Npgsql](https://github.com/npgsql), when you execute the server, you may sporadically notice the following exception
 
 > Npgsql.NpgsqlException : Unable to write data to the transport connection: An existing connection was forcibly closed by the remote host.
 
 Refer https://github.com/npgsql/npgsql/issues/939 to know details. Resolution is to use `Pooling=false` in connection string.
+
+### InitDb failure while starting embedded server
+
+> fixing permissions on existing directory ./pg_embed/aa60c634-fa20-4fa8-b4fc-a43a3b08aa99/data ... initdb: could not change permissions of directory "./pg_embed/aa60c634-fa20-4fa8-b4fc-a43a3b08aa99/data": Permission denied
+
+All processes run from within the embedded server runs under local account. Postgres expects that the parent folder of the data directory has full access permission for the local account.
+
+The fix is to pass a flag `addLocalUserAccessPermission` as `true` and the system will attempt to add full access before the InitDb step as below:
+
+```
+icacls.exe c:\pg_embed\aa60c634-fa20-4fa8-b4fc-a43a3b08aa99 /t /grant:r <user>:(OI)(OC)F
+```
+
+Note: 
+1. The local account should have rights to change folder permissions otherwise the operation will result in an exception.
+2. You may not face this issue in development environments.
+1. This step was required to be enabled for Appveyor CI builds to succeed.
 
 ## Pending Tasks
 Wire up CI via Appveyor and releasing Nuget package.

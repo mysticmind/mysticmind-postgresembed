@@ -41,6 +41,8 @@ namespace MysticMind.PostgresEmbed
 
         private List<PgExtensionConfig> _pgExtensions = new List<PgExtensionConfig>();
 
+        private bool _addLocalUserAccessPermission;
+
         private Policy _retryPolicy;
 
         public PgServer(
@@ -50,6 +52,7 @@ namespace MysticMind.PostgresEmbed
             int port = 0,
             Dictionary<string, string> pgServerParams = null,
             List<PgExtensionConfig> pgExtensions = null,
+            bool addLocalUserAccessPermission = false,
             bool clearInstanceDir = true, 
             bool clearWorkingDir=false)
         {
@@ -97,6 +100,8 @@ namespace MysticMind.PostgresEmbed
 
             _clearInstanceDir = clearInstanceDir;
             _clearWorkingDir = clearWorkingDir;
+
+            _addLocalUserAccessPermission = addLocalUserAccessPermission;
 
             BinariesDir = Path.Combine(DbDir, "binaries");
             InstanceDir = Path.Combine(DbDir, _instanceId.ToString());
@@ -207,6 +212,38 @@ namespace MysticMind.PostgresEmbed
             {
                 var pgExtensionInstance = new PgExtension(PgVersion, PG_HOST, PgPort, PgUser, PgDbName, BinariesDir, PgDir, extnConfig);
                 _retryPolicy.Execute(() => pgExtensionInstance.Extract());
+            }
+        }
+
+        // In some cases like CI environments, local user account will have write access
+        // on the Instance directory (Postgres expects write access on the parent of data directory)
+        // Otherwise when running initdb, it results in 'initdb: could not change permissions of directory'
+        // Also note that the local account should have admin rights to change folder permissions
+        private void AddLocalUserAccessPermission()
+        {
+            var filename = "icacls.exe";
+            var args = new List<string>();
+
+            // get the local user under which the program runs
+            var currentLocalUser = Environment.GetEnvironmentVariable("Username");
+
+            args.Add(InstanceDir);
+            args.Add("/t");
+            args.Add("/grant:r");
+            args.Add($"{currentLocalUser}:(OI)(CI)F");
+
+            try
+            {
+                var result = Utils.RunProcess(filename, args);
+
+                if (result.ExitCode != 0)
+                {
+                    throw new Exception($"Adding full access permission to local user account on instance folder returned an error code {result.Output}");
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error occurred while adding full access permission to local account on instance folder", ex);
             }
         }
 
@@ -402,6 +439,8 @@ namespace MysticMind.PostgresEmbed
 
             ExtractPgBinary();
             ExtractPgExtensions();
+
+            AddLocalUserAccessPermission();
 
             InitDb();
             StartServer();

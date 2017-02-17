@@ -13,14 +13,19 @@ namespace MysticMind.PostgresEmbed.Tests
 
     public class PgServer_Tests
     {
-        // since CI builds are run on Appveyor, we will use the appveyor user
-        private const string PG_USER = "appveyor";
+        private const string PG_USER = "postgres";
         private const string CONN_STR = "Server=localhost;Port={0};User Id={1};Password=test;Database=postgres;Pooling=false";
+
+        // this required for the appveyor CI build to set full access for appveyor user on instance folder
+        private const bool ADD_LOCAL_USER_ACCESS_PERMISSION = true;
 
         [Fact]
         public void create_server_and_table_test()
         {
-            using (var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1", PG_USER))
+            using (var server = new MysticMind.PostgresEmbed.PgServer(
+                "9.5.5.1", 
+                PG_USER, 
+                addLocalUserAccessPermission: ADD_LOCAL_USER_ACCESS_PERMISSION))
             {
                 server.Start();
                 
@@ -57,7 +62,11 @@ namespace MysticMind.PostgresEmbed.Tests
             // set max connections
             serverParams.Add("max_connections", "300");
 
-            using (var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1", PG_USER, pgServerParams: serverParams))
+            using (var server = new MysticMind.PostgresEmbed.PgServer(
+                "9.5.5.1", 
+                PG_USER, 
+                pgServerParams: serverParams, 
+                addLocalUserAccessPermission: ADD_LOCAL_USER_ACCESS_PERMISSION))
             {
                 server.Start();
 
@@ -80,7 +89,10 @@ namespace MysticMind.PostgresEmbed.Tests
         [Fact]
         public void create_server_without_using_block()
         {
-            var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1", PG_USER);
+            var server = new MysticMind.PostgresEmbed.PgServer(
+                "9.5.5.1", 
+                PG_USER,
+                addLocalUserAccessPermission: ADD_LOCAL_USER_ACCESS_PERMISSION);
 
             try
             {    
@@ -112,7 +124,11 @@ namespace MysticMind.PostgresEmbed.Tests
                     new List<string> { "CREATE EXTENSION plv8" }
                 ));
 
-            using (var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1", PG_USER, pgExtensions: extensions))
+            using (var server = new MysticMind.PostgresEmbed.PgServer(
+                "9.5.5.1", 
+                PG_USER, 
+                pgExtensions: extensions,
+                addLocalUserAccessPermission: ADD_LOCAL_USER_ACCESS_PERMISSION))
             {
                 server.Start();
             }
@@ -132,7 +148,11 @@ namespace MysticMind.PostgresEmbed.Tests
                         }
                 ));
 
-            using (var server = new MysticMind.PostgresEmbed.PgServer("9.6.2.1", PG_USER, pgExtensions: extensions))
+            using (var server = new MysticMind.PostgresEmbed.PgServer(
+                "9.6.2.1", 
+                PG_USER, 
+                pgExtensions: extensions,
+                addLocalUserAccessPermission: ADD_LOCAL_USER_ACCESS_PERMISSION))
             {
                 server.Start();
             }
