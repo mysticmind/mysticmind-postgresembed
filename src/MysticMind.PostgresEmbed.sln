@@ -1,11 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25420.1
+# Visual Studio 15
+VisualStudioVersion = 15.0.27703.2026
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "MysticMind.PostgresEmbed.Tests", "MysticMind.PostgresEmbed.Tests\MysticMind.PostgresEmbed.Tests.xproj", "{3D30ABC5-3956-4537-98E0-7DF5B147449C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MysticMind.PostgresEmbed.Tests", "MysticMind.PostgresEmbed.Tests\MysticMind.PostgresEmbed.Tests.csproj", "{3D30ABC5-3956-4537-98E0-7DF5B147449C}"
 EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "MysticMind.PostgresEmbed", "MysticMind.PostgresEmbed\MysticMind.PostgresEmbed.xproj", "{261AE1C4-6B77-4999-844C-8F3B9F096F43}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MysticMind.PostgresEmbed", "MysticMind.PostgresEmbed\MysticMind.PostgresEmbed.csproj", "{261AE1C4-6B77-4999-844C-8F3B9F096F43}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -24,5 +24,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {7B918296-F47A-4F90-8976-04B2E460E154}
 	EndGlobalSection
 EndGlobal

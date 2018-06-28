@@ -27,13 +27,11 @@ namespace MysticMind.PostgresEmbed
 
         private const string PSQL_EXE = "psql.exe";
 
-        private Guid _instanceId = Guid.NewGuid();
-
         private string _pgBinaryFullPath;
 
-        private bool _clearInstanceDir;
+        private bool _clearInstanceDirOnStop;
 
-        private bool _clearWorkingDir;
+        private bool _clearWorkingDirOnStart;
 
         private Process _pgServerProcess;
 
@@ -49,12 +47,13 @@ namespace MysticMind.PostgresEmbed
             string pgVersion,
             string pgUser = PG_SUPERUSER,
             string dbDir = "",
+            Guid? instanceId = null,
             int port = 0,
             Dictionary<string, string> pgServerParams = null,
             List<PgExtensionConfig> pgExtensions = null,
             bool addLocalUserAccessPermission = false,
-            bool clearInstanceDir = true, 
-            bool clearWorkingDir=false)
+            bool clearInstanceDirOnStop = false, 
+            bool clearWorkingDirOnStart=false)
         {
             PgVersion = pgVersion;
 
@@ -98,13 +97,18 @@ namespace MysticMind.PostgresEmbed
                 _pgExtensions.AddRange(pgExtensions);
             }
 
-            _clearInstanceDir = clearInstanceDir;
-            _clearWorkingDir = clearWorkingDir;
+            if (instanceId == null)
+            {
+                instanceId = Guid.NewGuid();
+            }
+
+            _clearInstanceDirOnStop = clearInstanceDirOnStop;
+            _clearWorkingDirOnStart = clearWorkingDirOnStart;
 
             _addLocalUserAccessPermission = addLocalUserAccessPermission;
 
             BinariesDir = Path.Combine(DbDir, "binaries");
-            InstanceDir = Path.Combine(DbDir, _instanceId.ToString());
+            InstanceDir = Path.Combine(DbDir, instanceId.ToString());
             PgDir = Path.Combine(InstanceDir, "pgsql");
             PgBinDir = Path.Combine(PgDir, "bin");
             DataDir = Path.Combine(InstanceDir, "data");
@@ -177,10 +181,7 @@ namespace MysticMind.PostgresEmbed
         {
             try
             {
-                if (_clearWorkingDir)
-                {
-                    Directory.Delete(DbDir, true);
-                }
+                Directory.Delete(DbDir, true);
             }
             catch
             {
@@ -191,10 +192,7 @@ namespace MysticMind.PostgresEmbed
         {
             try
             {
-                if (_clearInstanceDir)
-                {
-                    Directory.Delete(InstanceDir, true);
-                }
+                Directory.Delete(InstanceDir, true);
             }
             catch
             {
@@ -430,22 +428,36 @@ namespace MysticMind.PostgresEmbed
         public void Start()
         {
             // clear working directory based on flag passed
-            RemoveWorkingDir();
+            if (_clearWorkingDirOnStart)
+            {
+                RemoveWorkingDir();
+            }
 
-            CreateDirs();
+            if (!Directory.Exists(InstanceDir))
+            {
+                CreateDirs();
 
-            DownloadPgBinary();
-            DownloadPgExtensions();
+                // if the file already exists, download will be skipped
+                DownloadPgBinary();
 
-            ExtractPgBinary();
-            ExtractPgExtensions();
+                // if the file already exists, download will be skipped
+                DownloadPgExtensions();
 
-            AddLocalUserAccessPermission();
+                ExtractPgBinary();
+                ExtractPgExtensions();
 
-            InitDb();
-            StartServer();
+                AddLocalUserAccessPermission();
 
-            CreateExtensions();
+                InitDb();
+                StartServer();
+
+                CreateExtensions();
+            } 
+            else
+            {
+                StartServer();
+            }
+            
         }
 
         public void Stop()
@@ -454,7 +466,10 @@ namespace MysticMind.PostgresEmbed
             KillServerProcess();
 
             // clear instance directory based on flag passed
-            RemoveInstanceDir();
+            if (_clearInstanceDirOnStop)
+            {
+                RemoveInstanceDir();
+            }
         }
 
         public void Dispose()

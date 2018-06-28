@@ -6,11 +6,10 @@ using Xunit;
 using Xunit.Abstractions;
 
 using Polly;
+using System.IO;
 
 namespace MysticMind.PostgresEmbed.Tests
 {
-    using NuGet.Versioning;
-
     public class PgServer_Tests
     {
         private const string PG_USER = "postgres";
@@ -25,7 +24,8 @@ namespace MysticMind.PostgresEmbed.Tests
             using (var server = new MysticMind.PostgresEmbed.PgServer(
                 "9.5.5.1", 
                 PG_USER, 
-                addLocalUserAccessPermission: ADD_LOCAL_USER_ACCESS_PERMISSION))
+                addLocalUserAccessPermission: ADD_LOCAL_USER_ACCESS_PERMISSION,
+                clearInstanceDirOnStop:true))
             {
                 server.Start();
                 
@@ -66,7 +66,8 @@ namespace MysticMind.PostgresEmbed.Tests
                 "9.5.5.1", 
                 PG_USER, 
                 pgServerParams: serverParams, 
-                addLocalUserAccessPermission: ADD_LOCAL_USER_ACCESS_PERMISSION))
+                addLocalUserAccessPermission: ADD_LOCAL_USER_ACCESS_PERMISSION,
+                clearInstanceDirOnStop: true))
             {
                 server.Start();
 
@@ -92,7 +93,8 @@ namespace MysticMind.PostgresEmbed.Tests
             var server = new MysticMind.PostgresEmbed.PgServer(
                 "9.5.5.1", 
                 PG_USER,
-                addLocalUserAccessPermission: ADD_LOCAL_USER_ACCESS_PERMISSION);
+                addLocalUserAccessPermission: ADD_LOCAL_USER_ACCESS_PERMISSION,
+                clearInstanceDirOnStop: true);
 
             try
             {    
@@ -128,7 +130,8 @@ namespace MysticMind.PostgresEmbed.Tests
                 "9.5.5.1", 
                 PG_USER, 
                 pgExtensions: extensions,
-                addLocalUserAccessPermission: ADD_LOCAL_USER_ACCESS_PERMISSION))
+                addLocalUserAccessPermission: ADD_LOCAL_USER_ACCESS_PERMISSION,
+                clearInstanceDirOnStop: true))
             {
                 server.Start();
             }
@@ -140,7 +143,7 @@ namespace MysticMind.PostgresEmbed.Tests
             var extensions = new List<PgExtensionConfig>();
             
             extensions.Add(new PgExtensionConfig(
-                    "http://download.osgeo.org/postgis/windows/pg96/postgis-bundle-pg96-2.3.2x64.zip",
+                    "http://download.osgeo.org/postgis/windows/pg96/postgis-bundle-pg96-2.4.4x64.zip",
                     new List<string>
                         {
                             "CREATE EXTENSION postgis",
@@ -152,9 +155,85 @@ namespace MysticMind.PostgresEmbed.Tests
                 "9.6.2.1", 
                 PG_USER, 
                 pgExtensions: extensions,
-                addLocalUserAccessPermission: ADD_LOCAL_USER_ACCESS_PERMISSION))
+                addLocalUserAccessPermission: ADD_LOCAL_USER_ACCESS_PERMISSION,
+                clearInstanceDirOnStop: true))
             {
                 server.Start();
+            }
+        }
+
+        [Fact]
+        public void create_server_with_user_defined_instance_id_and_table_test()
+        {
+            using (var server = new MysticMind.PostgresEmbed.PgServer(
+                "9.5.5.1",
+                PG_USER,
+                addLocalUserAccessPermission: ADD_LOCAL_USER_ACCESS_PERMISSION,
+                instanceId: Guid.NewGuid(),
+                clearInstanceDirOnStop: true))
+            {
+                server.Start();
+
+                // assert if instance id drectory exists
+                Assert.True(Directory.Exists(server.InstanceDir));
+
+                // Note: set pooling to false to prevent connecting issues
+                // https://github.com/npgsql/npgsql/issues/939
+                string connStr = string.Format(CONN_STR, server.PgPort, PG_USER);
+                var conn = new Npgsql.NpgsqlConnection(connStr);
+                var cmd =
+                    new Npgsql.NpgsqlCommand(
+                        "CREATE TABLE table1(ID CHAR(256) CONSTRAINT id PRIMARY KEY, Title CHAR)",
+                        conn);
+
+                conn.Open();
+                cmd.ExecuteNonQuery();
+                conn.Close();
+            }
+
+        }
+
+        [Fact]
+        public void create_server_with_existing_instance_id_and_table_test()
+        {
+            Guid instanceId = Guid.NewGuid();
+
+            using (var server = new MysticMind.PostgresEmbed.PgServer(
+                "9.5.5.1",
+                PG_USER,
+                addLocalUserAccessPermission: ADD_LOCAL_USER_ACCESS_PERMISSION,
+                instanceId: instanceId))
+            {
+                server.Start();
+
+                // assert if instance id drectory exists
+                Assert.True(Directory.Exists(server.InstanceDir));
+
+                // Note: set pooling to false to prevent connecting issues
+                // https://github.com/npgsql/npgsql/issues/939
+                string connStr = string.Format(CONN_STR, server.PgPort, PG_USER);
+                var conn = new Npgsql.NpgsqlConnection(connStr);
+                var cmd =
+                    new Npgsql.NpgsqlCommand(
+                        "CREATE TABLE table1(ID CHAR(256) CONSTRAINT id PRIMARY KEY, Title CHAR)",
+                        conn);
+
+                conn.Open();
+                cmd.ExecuteNonQuery();
+                conn.Close();
+            }
+
+            using (var server = new MysticMind.PostgresEmbed.PgServer(
+                "9.5.5.1",
+                PG_USER,
+                addLocalUserAccessPermission: ADD_LOCAL_USER_ACCESS_PERMISSION,
+                instanceId: instanceId,
+                clearInstanceDirOnStop:true))
+            {
+                server.Start();
+
+                // assert if instance id drectory exists
+                Assert.True(Directory.Exists(server.InstanceDir));
             }
         }
 

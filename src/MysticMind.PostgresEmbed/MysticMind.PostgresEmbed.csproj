@@ -1,0 +1,39 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Postgres embedded server equivalent for .Net applications</Description>
+    <Copyright>Copyright (C) Babu Annamalai</Copyright>
+    <AssemblyTitle>MysticMind.PostgresEmbed</AssemblyTitle>
+    <VersionPrefix>1.0.0</VersionPrefix>
+    <Authors>Babu Annamalai</Authors>
+    <TargetFrameworks>netcoreapp2.0;net46</TargetFrameworks>
+    <AssemblyName>MysticMind.PostgresEmbed</AssemblyName>
+    <PackageId>MysticMind.PostgresEmbed</PackageId>
+    <PackageTags>postgres;postgresql;pg;embed;embedded;server;.net 4.6;net 4.6;net46;.net core;net core;netcore;netcore 2.0;netcore rtm</PackageTags>
+    <PackageProjectUrl>https://github.com/mysticmind/mysticmind-postgresembed</PackageProjectUrl>
+    <PackageLicenseUrl>https://github.com/mysticmind/mysticmind-postgresembed/blob/master/LICENSE</PackageLicenseUrl>
+    <RepositoryUrl>https://github.com/mysticmind/mysticmind-postgresembed</RepositoryUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Diagnostics.Process" Version="4.3.0" />
+    <PackageReference Include="System.IO.Compression.ZipFile" Version="4.3.0" />
+    <PackageReference Include="System.Net.NetworkInformation" Version="4.3.0" />
+    <PackageReference Include="System.Net.Http" Version="4.3.3" />
+    <PackageReference Include="System.Threading.Thread" Version="4.3.0" />
+  </ItemGroup>
+
+  <ItemGroup Condition=" '$(TargetFramework)' == 'netcoreapp2.0' ">
+    <PackageReference Include="Polly" Version="6.0.1" />
+    <PackageReference Include="System.IO.Compression" Version="4.3.0" />
+  </ItemGroup>
+
+  <ItemGroup Condition=" '$(TargetFramework)' == 'net46' ">
+    <PackageReference Include="Polly" Version="5.0.5" />
+    <PackageReference Include="System.IO" Version="4.3.0" />
+    <PackageReference Include="System.IO.Compression" Version="4.0.0.0" />
+    <PackageReference Include="System.Runtime" Version="4.3.0" />
+    <PackageReference Include="System.Threading.Tasks" Version="4.3.0" />
+  </ItemGroup>
+
+</Project>
