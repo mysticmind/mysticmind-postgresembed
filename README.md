@@ -5,6 +5,7 @@ This is a library for running a Postgres server embedded equivalent including ex
 This project uses the binaries published in Nuget package [PostgreSql.Binaries.Lite](https://www.nuget.org/packages/PostgreSql.Binaries.Lite/). Note that this is a minimal set of binaries which can be quickly downloaded (less than 20MB) for use rather than the official downloads which are pegged at around 100MB.
 
 ## Usage
+Install the package from Nuget using `Install-Package MysticMind.PostgresEmbed` or clone the repository and build it.
 
 ### Example of using Postgres binary
 ```csharp
@@ -142,8 +143,11 @@ public class DatabaseServerFixture : IDisposable
 - `postgres` is the default database created
 - `postgres` is the default user (super user) to be used for connection
 - Trust authentication is the default authentication. You can pass any password in connection string which will be ignored by the server. Since our primary motivation is to use the server for unit tests on localhost, this is pretty fine to keep it simple.
-- If you has passed `DbDir` path while creating the server then it will be used as the working directory else it will use the current directory. You will find a folder named `pg_embed` within which the `binaries` and instance folders are created.
-- If you would want to validate something on an instance, you could pass `clearInstanceDir=false` while creating the server. This won't delete the folder after the execution and tear down of the server. You can manually start the server using `pg_ctl.exe` available within the pgsql bin directory and connect using any Postgres client.  
+- If you pass `DbDir` path while creating the server then it will be used as the working directory else it will use the current directory. You will find a folder named `pg_embed` within which the `binaries` and instance folders are created.
+- If you would want to clear the whole root working directory prior to start of server(clear the all the folders from prior runs), you can pass you can pass `clearWorkingDirOnStart=true` in the constuctor while creating the server. By default this value is `false`.
+- If you would want to clear the instance directory on stopping the server, you could pass `clearInstanceDirOnStop=true` in the constuctor while creating the server. This won't delete the folder after the execution and tear down of the server. By default this value is false.
+- If you would want to run a named instance, you can pass a guid value for `instanceId` in the constructor. This will be helpful in scenarios where you would want to rerun the same named instance already setup wherein the system. In this case, if the named directory exists, system will skip the setup process and start the server. Note that `clearInstanceDirOnStop` and `clearWorkingDirOnStart` should be `false` (this is the default as well).
+- If you don't pass a `instanceId`, system will create a new instance by running the whole setup process for every server start.
 
 ## How it works
 The following steps are done when you run an embedded server:
@@ -190,11 +194,11 @@ Note:
 3. This step was required to be enabled for Appveyor CI builds to succeed.
 
 ## Appveyor CI builds
-Appveyor CI build  unit tests work for .netcoreapp1.0 but fails for .net 4.6 in the initdb step which is quite surprising. On local dev environments, I have confirmed that .net 4.6 build works fine. 
+Appveyor CI build  unit tests work for .netcoreapp2.0 but fails for .net 4.6 in the initdb step which is quite surprising. On local dev environments, I have confirmed that .net 4.6 build works fine. 
 
-Note that I have only enabled .netcoreapp1.0 unit tests on Appveyor in the interim.
+Note that I have only enabled .netcoreapp2.0 unit tests on Appveyor in the interim.
 
-Nuget publish will contain publish packages for both .netcoreapp1.0 and .net 4.6.
+Nuget publish will contain publish packages for both .netcoreapp2.0 and .net 4.6.
 
 ## Acknowledgements
 - This project uses the Postgres binaries published via [PostgreSql.Binaries.Lite](https://github.com/mihasic/PostgreSql.Binaries.Lite).
