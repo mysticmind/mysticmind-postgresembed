@@ -26,7 +26,7 @@ after_build:
 
 test_script:
     - dotnet test .\src\MysticMind.PostgresEmbed.Tests\MysticMind.PostgresEmbed.Tests.csproj --configuration %CONFIGURATION% - f netcoreapp2.0
-    - dotnet test .\src\MysticMind.PostgresEmbed.Tests\MysticMind.PostgresEmbed.Tests.csproj --configuration %CONFIGURATION% - f net46
+      #    - dotnet test .\src\MysticMind.PostgresEmbed.Tests\MysticMind.PostgresEmbed.Tests.csproj --configuration %CONFIGURATION% - f net46
 
 artifacts:
     - path: '**\MysticMind.PostgresEmbed.*.nupkg' # find all NuGet packages recursively
