@@ -19,7 +19,7 @@ before_build:
     - dotnet restore .\src\MysticMind.PostgresEmbed.sln
 
 build_script:
-    - dotnet build .\src\MysticMind.PostgresEmbed.sln --configuration %CONFIGURATON% /p:Version=%TARGET_BUILD_VERSION%
+    - dotnet build .\src\MysticMind.PostgresEmbed.sln --configuration %CONFIGURATION% /p:Version=%TARGET_BUILD_VERSION%
 
 after_build:
     - dotnet pack .\src\MysticMind.PostgresEmbed --configuration %CONFIGURATION% /p:Version=%TARGET_BUILD_VERSION%
