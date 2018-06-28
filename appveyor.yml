@@ -1,38 +1,38 @@
-version: 0.1.{build}
+version: 1.0.0.{build}
 
-os: Visual Studio 2015
+os: Visual Studio 2017
 
 configuration: Release
 
+skip_tags: true
+
+environment:
+    DOTNET_CLI_TELEMETRY_OPTOUT: true
+    DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+    TARGET_BUILD_VERSION: '1.0.0'
+
+nuget:
+    disable_publish_on_pr: true
+
 before_build:
-- cmd: >-
-    appveyor-retry dotnet restore -v Minimal
+    - dotnet --info
+    - dotnet restore .\src\MysticMind.PostgresEmbed.sln
 
-    cd %APPVEYOR_BUILD_FOLDER%\src\build
-
-    npm install
-
-    node update-project-version.js ../MysticMind.PostgresEmbed/project.json %APPVEYOR_BUILD_VERSION%
-    node update-project-deps-version.js ../MysticMind.PostgresEmbed.Tests/project.json MysticMind.HtmlAgilityPack %APPVEYOR_BUILD_VERSION%
-
-    cd %APPVEYOR_BUILD_FOLDER%
-
-test_script:
-- ps: >-
-    cd src/MysticMind.PostgresEmbed.Tests
-
-    dotnet restore
-
-    dotnet test -c %CONFIGURATION% -f netcoreapp1.0
+build_script:
+    - dotnet build .\src\MysticMind.PostgresEmbed.sln --configuration %CONFIGURATON% /p:Version=%TARGET_BUILD_VERSION%
 
 after_build:
-- cmd: dotnet pack "src\MysticMind.PostgresEmbed" -c %CONFIGURATION% --no-build -o artifacts
+    - dotnet pack .\src\MysticMind.PostgresEmbed --configuration %CONFIGURATION% /p:Version=%TARGET_BUILD_VERSION%
+
+test_script:
+    - dotnet test .\src\MysticMind.PostgresEmbed.Tests\MysticMind.PostgresEmbed.Tests.csproj --configuration %CONFIGURATION% - f netcoreapp2.0
+    - dotnet test .\src\MysticMind.PostgresEmbed.Tests\MysticMind.PostgresEmbed.Tests.csproj --configuration %CONFIGURATION% - f net46
 
 artifacts:
-- path: artifacts\**\*.*
+    - path: '**\MysticMind.PostgresEmbed.*.nupkg' # find all NuGet packages recursively
 
-deploy:
-- provider: NuGet
-  api_key:
-    secure: 1XMgADnmiLunXwBT7K0CMDcHyoC5tUFE4Cf+X7VkuzoRZiWnIL2P9mP7oPEtGPHg
-  skip_symbols: true
+# deploy:
+#    - provider: NuGet
+#    api_key:
+#     secure: 1XMgADnmiLunXwBT7K0CMDcHyoC5tUFE4Cf+X7VkuzoRZiWnIL2P9mP7oPEtGPHg
+#    skip_symbols: true
