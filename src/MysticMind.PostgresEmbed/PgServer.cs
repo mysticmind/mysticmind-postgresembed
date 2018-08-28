@@ -446,7 +446,10 @@ namespace MysticMind.PostgresEmbed
                 ExtractPgBinary();
                 ExtractPgExtensions();
 
-                AddLocalUserAccessPermission();
+                if (_addLocalUserAccessPermission)
+                {
+                    AddLocalUserAccessPermission();
+                }
 
                 InitDb();
                 StartServer();
