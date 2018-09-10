@@ -26,7 +26,16 @@ namespace MysticMind.PostgresEmbed
         {
             var versionParts = _pgVersion.Split('.');
 
-            var zipFilename = string.Format(FILE_NAME, $"{versionParts[0]}.{versionParts[1]}.{versionParts[2]}-{versionParts[3]}");
+            string zipFilename = "";
+
+            if (versionParts.Length > 3)
+            {
+                zipFilename = string.Format(FILE_NAME, $"{versionParts[0]}.{versionParts[1]}.{versionParts[2]}-{versionParts[3]}");
+            }
+            else
+            {
+                zipFilename = string.Format(FILE_NAME, $"{versionParts[0]}.{versionParts[1]}-{versionParts[2]}");
+            }
 
             var zipFile = Path.Combine(_destDir, zipFilename);
 
