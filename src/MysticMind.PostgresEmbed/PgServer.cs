@@ -41,7 +41,8 @@ namespace MysticMind.PostgresEmbed
 
         private bool _addLocalUserAccessPermission;
 
-        private Policy _retryPolicy;
+        private Policy _downloadRetryPolicy;
+        private Policy _deleteFoldersRetryPolicy;
 
         public PgServer(
             string pgVersion,
@@ -53,7 +54,10 @@ namespace MysticMind.PostgresEmbed
             List<PgExtensionConfig> pgExtensions = null,
             bool addLocalUserAccessPermission = false,
             bool clearInstanceDirOnStop = false, 
-            bool clearWorkingDirOnStart=false)
+            bool clearWorkingDirOnStart=false,
+            int deleteFolderRetryCount =5, 
+            int deleteFolderInitialTimeout =16, 
+            int deleteFolderTimeoutFactor =2)
         {
             PgVersion = pgVersion;
 
@@ -115,9 +119,13 @@ namespace MysticMind.PostgresEmbed
             
 
             // setup the policy for retry pertaining to downloading binary
-            _retryPolicy =
+            _downloadRetryPolicy =
                 Polly.Policy.Handle<Exception>()
                     .WaitAndRetry(new[] { TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(4) });
+            //Set up the policy for retry pertaining to folder deletion.
+            _deleteFoldersRetryPolicy =
+                Polly.Policy.Handle<Exception>()
+                    .WaitAndRetry(deleteFolderRetryCount, retryAttempt =>TimeSpan.FromMilliseconds(deleteFolderInitialTimeout *(int) Math.Pow(deleteFolderTimeoutFactor, retryAttempt-1)));
         }
 
         public string PgVersion { get; private set; }
@@ -152,7 +160,7 @@ namespace MysticMind.PostgresEmbed
 
             try
             {
-                _pgBinaryFullPath = _retryPolicy.Execute(() => downloader.Download());
+                _pgBinaryFullPath = _downloadRetryPolicy.Execute(() => downloader.Download());
             }
             catch (Exception ex)
             {
@@ -165,7 +173,7 @@ namespace MysticMind.PostgresEmbed
             foreach (var extnConfig in _pgExtensions)
             {
                 var pgExtensionInstance = new PgExtension(PgVersion, PG_HOST, PgPort, PgUser, PgDbName, BinariesDir, PgDir, extnConfig);
-                _retryPolicy.Execute(() => pgExtensionInstance.Download());
+                _downloadRetryPolicy.Execute(() => pgExtensionInstance.Download());
             }
         }
 
@@ -177,26 +185,40 @@ namespace MysticMind.PostgresEmbed
             Directory.CreateDirectory(DataDir);
         }
 
-        private void RemoveWorkingDir()
+        private void RemoveWorkingDir() => DeleteDirectory(DbDir);
+
+        private void RemoveInstanceDir() => DeleteDirectory(InstanceDir);
+
+        private void DeleteDirectory(string directoryPath)
         {
-            try
+            // From http://stackoverflow.com/questions/329355/cannot-delete-directory-with-directory-deletepath-true/329502#329502
+
+            if (!Directory.Exists(directoryPath))
             {
-                Directory.Delete(DbDir, true);
+                Trace.WriteLine(string.Format("Directory '{0}' is missing and can't be removed.", directoryPath));
+                return;
             }
-            catch
-            {
-            }
+
+            NormalizeAttributes(directoryPath);
+            _deleteFoldersRetryPolicy.Execute(() =>Directory.Delete(directoryPath, true));
         }
 
-        private void RemoveInstanceDir()
+        private static void NormalizeAttributes(string directoryPath)
         {
-            try
+            string[] filePaths = Directory.GetFiles(directoryPath);
+            string[] subdirectoryPaths = Directory.GetDirectories(directoryPath);
+
+            foreach (string filePath in filePaths)
             {
-                Directory.Delete(InstanceDir, true);
+                File.SetAttributes(filePath, FileAttributes.Normal);
             }
-            catch
+
+            foreach (string subdirectoryPath in subdirectoryPaths)
             {
-            }   
+                NormalizeAttributes(subdirectoryPath);
+            }
+
+            File.SetAttributes(directoryPath, FileAttributes.Normal);
         }
 
         private void ExtractPgBinary()
@@ -209,7 +231,7 @@ namespace MysticMind.PostgresEmbed
             foreach (var extnConfig in _pgExtensions)
             {
                 var pgExtensionInstance = new PgExtension(PgVersion, PG_HOST, PgPort, PgUser, PgDbName, BinariesDir, PgDir, extnConfig);
-                _retryPolicy.Execute(() => pgExtensionInstance.Extract());
+                _downloadRetryPolicy.Execute(() => pgExtensionInstance.Extract());
             }
         }
 
@@ -279,7 +301,7 @@ namespace MysticMind.PostgresEmbed
             foreach (var extnConfig in _pgExtensions)
             {
                 var pgExtensionInstance = new PgExtension(PgVersion, PG_HOST, PgPort, PgUser, PgDbName, BinariesDir, PgDir, extnConfig);
-                _retryPolicy.Execute(() => pgExtensionInstance.CreateExtension());
+                _downloadRetryPolicy.Execute(() => pgExtensionInstance.CreateExtension());
             }
         }
 
