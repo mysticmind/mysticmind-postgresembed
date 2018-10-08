@@ -143,7 +143,7 @@ namespace MysticMind.PostgresEmbed.Tests
             var extensions = new List<PgExtensionConfig>();
             
             extensions.Add(new PgExtensionConfig(
-                    "http://download.osgeo.org/postgis/windows/pg96/postgis-bundle-pg96-2.4.4x64.zip",
+                    "http://download.osgeo.org/postgis/windows/pg96/postgis-bundle-pg96-2.5.0x64.zip",
                     new List<string>
                         {
                             "CREATE EXTENSION postgis",
