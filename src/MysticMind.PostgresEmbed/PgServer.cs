@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Diagnostics;
 using System.Collections.Generic;
@@ -372,6 +372,7 @@ namespace MysticMind.PostgresEmbed
 
                 _pgServerProcess.StartInfo.FileName = filename;
                 _pgServerProcess.StartInfo.Arguments = string.Join(" ", args);
+                _pgServerProcess.StartInfo.CreateNoWindow = true;
 
                 _pgServerProcess.Start();
 
