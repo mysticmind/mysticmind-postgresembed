@@ -7,32 +7,35 @@ configuration: Release
 skip_tags: true
 
 environment:
-    DOTNET_CLI_TELEMETRY_OPTOUT: true
-    DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
-    TARGET_BUILD_VERSION: '1.1.3'
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  TARGET_BUILD_VERSION: '1.2.0'
 
 nuget:
-    disable_publish_on_pr: true
+  disable_publish_on_pr: true
 
 before_build:
-    - dotnet --info
-    - dotnet restore .\src\MysticMind.PostgresEmbed.sln
+  - dotnet --info
+  - dotnet restore .\src\MysticMind.PostgresEmbed.sln
 
 build_script:
-    - dotnet build .\src\MysticMind.PostgresEmbed.sln --configuration %CONFIGURATION% /p:Version=%TARGET_BUILD_VERSION%
+  - dotnet build .\src\MysticMind.PostgresEmbed.sln --configuration %CONFIGURATION% /p:Version=%TARGET_BUILD_VERSION%
 
 after_build:
-    - dotnet pack .\src\MysticMind.PostgresEmbed --configuration %CONFIGURATION% /p:Version=%TARGET_BUILD_VERSION%
+  - dotnet pack .\src\MysticMind.PostgresEmbed --configuration %CONFIGURATION% /p:Version=%TARGET_BUILD_VERSION%
 
 test_script:
-    - dotnet test .\src\MysticMind.PostgresEmbed.Tests\MysticMind.PostgresEmbed.Tests.csproj --configuration %CONFIGURATION% -f netcoreapp2.0
-    - dotnet test .\src\MysticMind.PostgresEmbed.Tests\MysticMind.PostgresEmbed.Tests.csproj --configuration %CONFIGURATION% -f net46
+  - dotnet test .\src\MysticMind.PostgresEmbed.Tests\MysticMind.PostgresEmbed.Tests.csproj --configuration %CONFIGURATION% -f netcoreapp2.0
+  - dotnet test .\src\MysticMind.PostgresEmbed.Tests\MysticMind.PostgresEmbed.Tests.csproj --configuration %CONFIGURATION% -f net46
 
 artifacts:
-    - path: '**\MysticMind.PostgresEmbed.*.nupkg' # find all NuGet packages recursively
+  - path: '**\MysticMind.PostgresEmbed.*.nupkg' # find all NuGet packages recursively
 
-# deploy:
-#    - provider: NuGet
-#    api_key:
-#     secure: 1XMgADnmiLunXwBT7K0CMDcHyoC5tUFE4Cf+X7VkuzoRZiWnIL2P9mP7oPEtGPHg
-#    skip_symbols: true
+deploy:
+  provider: NuGet
+  api_key:
+    secure: 6yOBK0JyKMTykW1zW6B4mvc9mgQGnRGex15KG8VhOre/DSTkrUYtgbPCpiBlcX/T
+  artifact: /.*\.nupkg/
+  on:
+    APPVEYOR_REPO_TAG: true
+  skip_symbols: true
