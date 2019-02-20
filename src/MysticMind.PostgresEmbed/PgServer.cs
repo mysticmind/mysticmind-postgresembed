@@ -57,7 +57,8 @@ namespace MysticMind.PostgresEmbed
             bool clearWorkingDirOnStart=false,
             int deleteFolderRetryCount =5, 
             int deleteFolderInitialTimeout =16, 
-            int deleteFolderTimeoutFactor =2)
+            int deleteFolderTimeoutFactor =2,
+            string locale = null)
         {
             PgVersion = pgVersion;
 
@@ -126,6 +127,11 @@ namespace MysticMind.PostgresEmbed
             _deleteFoldersRetryPolicy =
                 Polly.Policy.Handle<Exception>()
                     .WaitAndRetry(deleteFolderRetryCount, retryAttempt =>TimeSpan.FromMilliseconds(deleteFolderInitialTimeout *(int) Math.Pow(deleteFolderTimeoutFactor, retryAttempt-1)));
+
+            if (!string.IsNullOrEmpty(locale))
+            {
+                Locale = locale;
+            }
         }
 
         public string PgVersion { get; private set; }
@@ -145,6 +151,8 @@ namespace MysticMind.PostgresEmbed
         public string DataDir { get; private set; }
 
         public int PgPort { get; private set; }
+
+        public string Locale { get; private set; }
 
         public string PgDbName
         {
@@ -280,6 +288,12 @@ namespace MysticMind.PostgresEmbed
 
             // add encoding
             args.Add("-E UTF-8");
+
+            // add locale if provided
+            if (Locale != null)
+            {
+                args.Add($"--locale {Locale}");
+            }
 
             try
             {
