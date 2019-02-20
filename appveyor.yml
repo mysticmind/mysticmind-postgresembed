@@ -37,3 +37,4 @@ deploy:
   on:
     APPVEYOR_REPO_TAG: true
   skip_symbols: true
+
