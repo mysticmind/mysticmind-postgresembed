@@ -4,12 +4,18 @@ using System.Threading.Tasks;
 using System.IO;
 using System.IO.Compression;
 using System.Threading;
+using NuGet.Configuration;
+using NuGet.Protocol.Core.Types;
+using NuGet.Protocol;
+using NuGet.Versioning;
+using NuGet.Packaging.Core;
+using NuGet.Frameworks;
+using NuGet.Common;
 
 namespace MysticMind.PostgresEmbed
 {
     internal class PgBinariesLiteBinaryDownloader
     {
-        private const string NUGET_URL = "https://www.nuget.org/api/v2/package/PostgreSql.Binaries.Lite/{0}";
         private const string FILE_NAME = "postgresql-{0}-windows-x64-binaries-lite.zip";
 
         private string _pgVersion;
@@ -20,6 +26,29 @@ namespace MysticMind.PostgresEmbed
         {
             _pgVersion = pgVersion;
             _destDir = destDir;
+        }
+
+        private async Task<Uri> GetNugetUri(CancellationToken cancellationToken)
+        {
+            var settings = Settings.LoadDefaultSettings(null);
+            var packageSourceProvider = new PackageSourceProvider(settings);
+            var sourceRepositoryProvider = new SourceRepositoryProvider(packageSourceProvider, FactoryExtensionsV3.GetCoreV3(Repository.Provider));
+            var package = new PackageIdentity("PostgreSql.Binaries.Lite", NuGetVersion.Parse(_pgVersion));
+            using (var cacheContext = new SourceCacheContext())
+            {
+                var repositories = sourceRepositoryProvider.GetRepositories();
+                foreach (var sourceRepository in repositories)
+                {
+                    var dependencyInfoResource = await sourceRepository.GetResourceAsync<DependencyInfoResource>();
+                    var dependencyInfo = await dependencyInfoResource.ResolvePackage(
+                        package, NuGetFramework.AnyFramework, cacheContext, NullLogger.Instance, cancellationToken);
+                    if (dependencyInfo != null)
+                    {
+                        return dependencyInfo.DownloadUri;
+                    }
+                }
+            }
+            throw new Exception("Could not find PostgreSql.Binaries.Lite package");
         }
         
         public string Download()
@@ -47,15 +76,16 @@ namespace MysticMind.PostgresEmbed
             }
 
             // first step is to download the nupkg file
-            var url = string.Format(NUGET_URL, _pgVersion);
+            var cs = new CancellationTokenSource();
+            var url = GetNugetUri(cs.Token).Result;
             var nupkgFile = Path.Combine(_destDir, $@"PostgreSql.Binaries.Lite.{_pgVersion}.nupkg");
 
             var progress = new System.Progress<double>();
             progress.ProgressChanged += (sender, value) => Console.WriteLine("\r %{0:N0}", value);
 
             // download the file
-            var cs = new CancellationTokenSource();
-            Utils.DownloadAsync(url, nupkgFile, progress, cs.Token).Wait();
+            Utils.DownloadAsync(url.AbsoluteUri, nupkgFile, progress, cs.Token).Wait();
+
 
             // extract the PG binary zip file
             using (var archive = ZipFile.OpenRead(nupkgFile))
