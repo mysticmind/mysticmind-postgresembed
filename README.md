@@ -2,7 +2,7 @@
 
 This is a library for running a Postgres server embedded equivalent including extensions targeting Windows x64. This project also handles Postgres extensions very well with a neat way to configure and use it.
 
-This project uses the binaries published in Nuget package [PostgreSql.Binaries.Lite](https://www.nuget.org/packages/PostgreSql.Binaries.Lite/). Note that this is a minimal set of binaries which can be quickly downloaded (less than 20MB) for use rather than the official downloads which are pegged at around 100MB.
+By default, this project uses the binaries published in Nuget package [PostgreSql.Binaries.Lite](https://www.nuget.org/packages/PostgreSql.Binaries.Lite/). Note that this is a minimal set of binaries which can be quickly downloaded (less than 20MB) for use rather than the official downloads which are pegged at around 100MB.
 
 ## Usage
 Install the package from Nuget using `Install-Package MysticMind.PostgresEmbed` or clone the repository and build it.
