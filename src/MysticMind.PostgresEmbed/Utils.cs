@@ -147,8 +147,17 @@ namespace MysticMind.PostgresEmbed
                 p.StartInfo.RedirectStandardOutput = true;
                 p.StartInfo.UseShellExecute = false;
                 p.EnableRaisingEvents = true;
-                p.OutputDataReceived += (sender, e) => outputBuilder.Append(e.Data);
-                p.ErrorDataReceived += (sender, e) => errorBuilder.Append(e.Data);
+                p.OutputDataReceived += (sender, e) =>
+                {
+                    if (!string.IsNullOrEmpty(e.Data))
+                        outputBuilder.Append(e.Data);
+                };
+
+                p.ErrorDataReceived += (sender, e) =>
+                {
+                    if (!string.IsNullOrEmpty(e.Data))
+                        errorBuilder.Append(e.Data);
+                };
 
                 p.StartInfo.FileName = filename;
                 p.StartInfo.Arguments = string.Join(" ", args);
