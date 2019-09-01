@@ -31,6 +31,31 @@ using (var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1"))
 }
 ```
 
+### Example of using Postgres binary with StartAsync
+```csharp
+// using Postgres 9.5.5.1 with a using block
+using (var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1"))
+{
+    // start the server
+    await server.StartAsync();
+    
+    // using Npgsql to connect the server
+    string connStr = $"Server=localhost;Port={server.PgPort};User Id=postgres;Password=test;Database=postgres";
+    
+    var conn = new Npgsql.NpgsqlConnection(connStr);
+    
+    var cmd =
+        new Npgsql.NpgsqlCommand(
+            "CREATE TABLE table1(ID CHAR(256) CONSTRAINT id PRIMARY KEY, Title CHAR)",
+            conn);
+
+    await conn.OpenAsync();
+    await cmd.ExecuteNonQueryAsync();
+    conn.Close();
+}
+```
+
+
 ### Example of using Postgres and extensions
 ```csharp
 // Example of using Postgres 9.6.2.1 with extension PostGIS 2.3.2
