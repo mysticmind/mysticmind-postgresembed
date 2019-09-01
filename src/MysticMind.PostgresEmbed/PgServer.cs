@@ -3,6 +3,7 @@ using System.IO;
 using System.Diagnostics;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 using Polly;
 
 namespace MysticMind.PostgresEmbed
@@ -512,7 +513,21 @@ namespace MysticMind.PostgresEmbed
             }
         }
 
-        public void Dispose()
+        public async Task StartAsync(CancellationToken token)
+        {
+            await Task.Run(() => Start(), token);
+        }
+
+        public async Task StartAsync() => await StartAsync(CancellationToken.None);
+
+        public async Task StopAsync(CancellationToken token)
+        {
+            await Task.Run(() => Stop(), token);
+        }
+
+        public async Task StopAsync() => await StopAsync(CancellationToken.None);
+
+        public async void Dispose()
         {
             Stop();
         }
