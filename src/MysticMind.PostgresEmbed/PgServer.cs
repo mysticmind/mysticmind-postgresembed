@@ -527,7 +527,7 @@ namespace MysticMind.PostgresEmbed
 
         public async Task StopAsync() => await StopAsync(CancellationToken.None);
 
-        public async void Dispose()
+        public void Dispose()
         {
             Stop();
         }
