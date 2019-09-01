@@ -7,6 +7,7 @@ using Xunit.Abstractions;
 
 using Polly;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace MysticMind.PostgresEmbed.Tests
 {
@@ -261,8 +262,61 @@ namespace MysticMind.PostgresEmbed.Tests
                 cmd.ExecuteNonQuery();
                 conn.Close();
             }
-
         }
 
+        [Fact]
+        public async Task create_server_async_and_table_test()
+        {
+            using (var server = new MysticMind.PostgresEmbed.PgServer(
+                "9.5.5.1",
+                PG_USER,
+                addLocalUserAccessPermission: ADD_LOCAL_USER_ACCESS_PERMISSION,
+                clearInstanceDirOnStop:true))
+            {
+                await server.StartAsync();
+
+                // Note: set pooling to false to prevent connecting issues
+                // https://github.com/npgsql/npgsql/issues/939
+                string connStr = string.Format(CONN_STR, server.PgPort, PG_USER);
+                var conn = new Npgsql.NpgsqlConnection(connStr);
+                var cmd =
+                    new Npgsql.NpgsqlCommand(
+                        "CREATE TABLE table1(ID CHAR(256) CONSTRAINT id PRIMARY KEY, Title CHAR)",
+                        conn);
+
+                await conn.OpenAsync();
+                await cmd.ExecuteNonQueryAsync();
+                conn.Close();
+            }
+        }
+        
+        [Fact]
+        public async Task create_server_async_without_using_block()
+        {
+            var server = new MysticMind.PostgresEmbed.PgServer(
+                "9.5.5.1", 
+                PG_USER,
+                addLocalUserAccessPermission: ADD_LOCAL_USER_ACCESS_PERMISSION,
+                clearInstanceDirOnStop: true);
+
+            try
+            {    
+                await server.StartAsync();
+                string connStr = string.Format(CONN_STR, server.PgPort, PG_USER);
+                var conn = new Npgsql.NpgsqlConnection(connStr);
+                var cmd =
+                    new Npgsql.NpgsqlCommand(
+                        "CREATE TABLE table1(ID CHAR(256) CONSTRAINT id PRIMARY KEY, Title CHAR)",
+                        conn);
+
+                await conn.OpenAsync();
+                await cmd.ExecuteNonQueryAsync();
+                conn.Close();
+            }
+            finally
+            {
+                await server.StopAsync();
+            }
+        }
     }
 }
