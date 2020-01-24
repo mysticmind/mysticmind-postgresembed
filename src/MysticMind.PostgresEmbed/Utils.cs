@@ -171,7 +171,7 @@ namespace MysticMind.PostgresEmbed
                 p.WaitForExit();
 
                 p.CancelOutputRead();
-                p.CancelOutputRead();
+                p.CancelErrorRead();
 
                 string output = outputBuilder.ToString();
                 string error = errorBuilder.ToString();
