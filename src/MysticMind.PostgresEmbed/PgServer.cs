@@ -267,7 +267,7 @@ namespace MysticMind.PostgresEmbed
 
                 if (result.ExitCode != 0)
                 {
-                    throw new Exception($"Adding full access permission to local user account on instance folder returned an error code {result.Output}");
+                    throw new Exception($"Adding full access permission to local user account on instance folder returned an error code {result.ExitCode} {result.Output} {result.Error}");
                 }
             }
             catch (Exception ex)
@@ -302,7 +302,7 @@ namespace MysticMind.PostgresEmbed
 
                 if (result.ExitCode != 0)
                 {
-                    throw new Exception($"InitDb execution returned an error code {result.Output}");
+                    throw new Exception($"InitDb execution returned an error code {result.ExitCode} {result.Output} {result.Error}");
                 }
             }
             catch (Exception ex)

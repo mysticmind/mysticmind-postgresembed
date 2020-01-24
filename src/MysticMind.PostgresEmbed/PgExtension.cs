@@ -125,7 +125,7 @@ namespace MysticMind.PostgresEmbed
 
                 if (result.ExitCode != 0)
                 {
-                    throw new Exception($"'{sql}' execution returned an error code { result.Output }");
+                    throw new Exception($"'{sql}' execution returned an error code {result.ExitCode} {result.Output} {result.Error}");
                 }
             }
             catch (Exception ex)
