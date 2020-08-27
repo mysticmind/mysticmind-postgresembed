@@ -150,13 +150,13 @@ namespace MysticMind.PostgresEmbed
                 p.OutputDataReceived += (sender, e) =>
                 {
                     if (!string.IsNullOrEmpty(e.Data))
-                        outputBuilder.Append(e.Data);
+                        outputBuilder.AppendLine(e.Data);
                 };
 
                 p.ErrorDataReceived += (sender, e) =>
                 {
                     if (!string.IsNullOrEmpty(e.Data))
-                        errorBuilder.Append(e.Data);
+                        errorBuilder.AppendLine(e.Data);
                 };
 
                 p.StartInfo.FileName = filename;
