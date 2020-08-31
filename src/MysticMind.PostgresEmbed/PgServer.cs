@@ -191,7 +191,6 @@ namespace MysticMind.PostgresEmbed
             Directory.CreateDirectory(DbDir);
             Directory.CreateDirectory(BinariesDir);
             Directory.CreateDirectory(PgDir);
-            Directory.CreateDirectory(DataDir);
         }
 
         private void RemoveWorkingDir() => DeleteDirectory(DbDir);
