@@ -4,7 +4,7 @@ This is a library for running a Postgres server embedded equivalent including ex
 
 By default, this project uses the binaries published in Nuget package [PostgreSql.Binaries.Lite](https://www.nuget.org/packages/PostgreSql.Binaries.Lite/). Note that this is a minimal set of binaries which can be quickly downloaded (less than 20MB) for use rather than the official downloads which are pegged at around 100MB.
 
-If you have benefitted from this library and has saved you a bunch of time, please feel free to buy me a coffee using the button below<br>
+If you have benefitted from this library and has saved you a bunch of time, please feel free to buy me a coffee!<br>
 <a href="https://www.buymeacoffee.com/babuannamalai" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174"></a>
 
 ## Usage
