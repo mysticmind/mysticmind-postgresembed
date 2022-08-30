@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using System.IO;
 using System.Net.Http;
 using System.Threading;
-using System.Net;
 using System.Net.NetworkInformation;
 using System.IO.Compression;
 using System.Text;
@@ -26,42 +25,38 @@ namespace MysticMind.PostgresEmbed
     {
         public static async Task DownloadAsync(string url, string downloadFullPath, IProgress<double> progress, CancellationToken token)
         {
-            HttpClient client = new HttpClient();
+            var client = new HttpClient();
 
-            using (HttpResponseMessage response = client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead).Result)
+            using HttpResponseMessage response = client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, token).Result;
+            response.EnsureSuccessStatusCode();
+
+            await using Stream contentStream = await response.Content.ReadAsStreamAsync(token), fileStream = new FileStream(downloadFullPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
+            var totalRead = 0L;
+            var totalReads = 0L;
+            var buffer = new byte[8192];
+            var isMoreToRead = true;
+
+            do
             {
-                response.EnsureSuccessStatusCode();
-
-                using (Stream contentStream = await response.Content.ReadAsStreamAsync(), fileStream = new FileStream(downloadFullPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true))
+                var read = await contentStream.ReadAsync(buffer, 0, buffer.Length, token);
+                if (read == 0)
                 {
-                    var totalRead = 0L;
-                    var totalReads = 0L;
-                    var buffer = new byte[8192];
-                    var isMoreToRead = true;
+                    isMoreToRead = false;
+                }
+                else
+                {
+                    await fileStream.WriteAsync(buffer.AsMemory(0, read), token);
 
-                    do
+                    totalRead += read;
+                    totalReads += 1;
+
+                    if (totalReads % 2000 == 0)
                     {
-                        var read = await contentStream.ReadAsync(buffer, 0, buffer.Length);
-                        if (read == 0)
-                        {
-                            isMoreToRead = false;
-                        }
-                        else
-                        {
-                            await fileStream.WriteAsync(buffer, 0, read);
-
-                            totalRead += read;
-                            totalReads += 1;
-
-                            if (totalReads % 2000 == 0)
-                            {
-                                Console.WriteLine(string.Format("total bytes downloaded so far: {0:n0}", totalRead));
-                            }
-                        }
+                        Console.WriteLine($"total bytes downloaded so far: {totalRead:n0}");
                     }
-                    while (isMoreToRead);
                 }
             }
+            while (isMoreToRead);
         }
 
         public static void ExtractZip(string zipFile, string destDir, string extractPath="", bool ignoreRootDir=false)
@@ -71,40 +66,37 @@ namespace MysticMind.PostgresEmbed
 
         public static void ExtractZipFolder(string zipFile, string destDir, string extractPath = "", bool ignoreRootDir = false)
         {
-            using (var archive = ZipFile.OpenRead(zipFile))
+            using var archive = ZipFile.OpenRead(zipFile);
+            var result = from entry in archive.Entries
+                where entry.FullName.StartsWith(extractPath)
+                select entry;
+
+            foreach (var entry in result)
             {
-                var result = from entry in archive.Entries
-                             where entry.FullName.StartsWith(extractPath)
-                             select entry;
+                var fullName = entry.FullName;
 
-                foreach (ZipArchiveEntry entry in result)
+                if (ignoreRootDir)
                 {
-                    var fullName = entry.FullName;
+                    var pathParts = entry.FullName.Split('/');
+                    pathParts = pathParts.Skip(1).ToArray();
 
-                    if (ignoreRootDir)
-                    {
-                        var pathParts = entry.FullName.Split('/');
-                        pathParts = pathParts.Skip(1).ToArray();
+                    fullName = Path.Combine(pathParts);
+                }
 
-                        fullName = Path.Combine(pathParts);
-                    }
-
-                    string fullPath = Path.Combine(destDir, fullName);
-                    if (String.IsNullOrEmpty(entry.Name))
-                    {
-                        Directory.CreateDirectory(fullPath);
-                    }
-                    else
-                    {
-                        entry.ExtractToFile(fullPath);
-                    }
+                var fullPath = Path.Combine(destDir, fullName);
+                if (string.IsNullOrEmpty(entry.Name))
+                {
+                    Directory.CreateDirectory(fullPath);
+                }
+                else
+                {
+                    entry.ExtractToFile(fullPath);
                 }
             }
         }
 
         public static int GetAvailablePort(int startingPort=5500)
         {
-            IPEndPoint[] endPoints;
             List<int> portArray = new List<int>();
 
             IPGlobalProperties properties = IPGlobalProperties.GetIPGlobalProperties();
@@ -116,7 +108,7 @@ namespace MysticMind.PostgresEmbed
                                select n.LocalEndPoint.Port);
 
             //getting active tcp listners
-            endPoints = properties.GetActiveTcpListeners();
+            var endPoints = properties.GetActiveTcpListeners();
             portArray.AddRange(from n in endPoints
                                where n.Port >= startingPort
                                select n.Port);
@@ -141,43 +133,41 @@ namespace MysticMind.PostgresEmbed
             var outputBuilder = new StringBuilder();
             var errorBuilder = new StringBuilder();
 
-            using (var p = new Process())
+            using var p = new Process();
+            p.StartInfo.RedirectStandardError = true;
+            p.StartInfo.RedirectStandardOutput = true;
+            p.StartInfo.UseShellExecute = false;
+            p.EnableRaisingEvents = true;
+            p.OutputDataReceived += (sender, e) =>
             {
-                p.StartInfo.RedirectStandardError = true;
-                p.StartInfo.RedirectStandardOutput = true;
-                p.StartInfo.UseShellExecute = false;
-                p.EnableRaisingEvents = true;
-                p.OutputDataReceived += (sender, e) =>
-                {
-                    if (!string.IsNullOrEmpty(e.Data))
-                        outputBuilder.AppendLine(e.Data);
-                };
+                if (!string.IsNullOrEmpty(e.Data))
+                    outputBuilder.AppendLine(e.Data);
+            };
 
-                p.ErrorDataReceived += (sender, e) =>
-                {
-                    if (!string.IsNullOrEmpty(e.Data))
-                        errorBuilder.AppendLine(e.Data);
-                };
+            p.ErrorDataReceived += (sender, e) =>
+            {
+                if (!string.IsNullOrEmpty(e.Data))
+                    errorBuilder.AppendLine(e.Data);
+            };
 
-                p.StartInfo.FileName = filename;
-                p.StartInfo.Arguments = string.Join(" ", args);
-                p.StartInfo.CreateNoWindow = true;
+            p.StartInfo.FileName = filename;
+            p.StartInfo.Arguments = string.Join(" ", args);
+            p.StartInfo.CreateNoWindow = true;
 
-                p.Start();
+            p.Start();
 
-                p.BeginOutputReadLine();
-                p.BeginErrorReadLine();
+            p.BeginOutputReadLine();
+            p.BeginErrorReadLine();
 
-                p.WaitForExit();
+            p.WaitForExit();
 
-                p.CancelOutputRead();
-                p.CancelErrorRead();
+            p.CancelOutputRead();
+            p.CancelErrorRead();
 
-                string output = outputBuilder.ToString();
-                string error = errorBuilder.ToString();
+            var output = outputBuilder.ToString();
+            var error = errorBuilder.ToString();
 
-                return new ProcessResult { ExitCode = p.ExitCode, Output = output, Error = error };
-            }
+            return new ProcessResult { ExitCode = p.ExitCode, Output = output, Error = error };
         }
     }
 }

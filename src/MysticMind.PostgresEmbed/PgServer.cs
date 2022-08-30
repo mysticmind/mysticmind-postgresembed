@@ -10,44 +10,44 @@ namespace MysticMind.PostgresEmbed
 {
     public class PgServer : IDisposable
     {
-        private const string PG_SUPERUSER = "postgres";
+        private const string PgSuperuser = "postgres";
 
-        private const string PG_HOST = "localhost";
+        private const string PgHost = "localhost";
 
-        private const string PG_DBNAME = "postgres";
+        private const string PgDbname = "postgres";
 
-        private const string PG_STOP_WAIT_S = "5";
+        private const string PgStopWaitS = "5";
 
-        private const int PG_STARTUP_WAIT_MS = 10 * 1000;
+        private const int PgStartupWaitMs = 10 * 1000;
 
-        private const string PG_STOP_MODE = "fast";
+        private const string PgStopMode = "fast";
 
-        private const string PG_CTL_EXE = "pg_ctl.exe";
+        private const string PgCtlExe = "pg_ctl.exe";
 
-        private const string INITDB_EXE = "initdb.exe";
+        private const string InitDbExe = "initdb.exe";
 
-        private const string PSQL_EXE = "psql.exe";
+        private const string PsqlExe = "psql.exe";
 
         private string _pgBinaryFullPath;
 
-        private bool _clearInstanceDirOnStop;
+        private readonly bool _clearInstanceDirOnStop;
 
-        private bool _clearWorkingDirOnStart;
+        private readonly bool _clearWorkingDirOnStart;
 
         private Process _pgServerProcess;
 
-        private List<string> _pgServerParams = new List<string>();
+        private readonly List<string> _pgServerParams = new List<string>();
 
-        private List<PgExtensionConfig> _pgExtensions = new List<PgExtensionConfig>();
+        private readonly List<PgExtensionConfig> _pgExtensions = new List<PgExtensionConfig>();
 
-        private bool _addLocalUserAccessPermission;
+        private readonly bool _addLocalUserAccessPermission;
 
-        private Policy _downloadRetryPolicy;
-        private Policy _deleteFoldersRetryPolicy;
+        private readonly Policy _downloadRetryPolicy;
+        private readonly Policy _deleteFoldersRetryPolicy;
 
         public PgServer(
             string pgVersion,
-            string pgUser = PG_SUPERUSER,
+            string pgUser = PgSuperuser,
             string dbDir = "",
             Guid? instanceId = null,
             int port = 0,
@@ -63,32 +63,11 @@ namespace MysticMind.PostgresEmbed
         {
             PgVersion = pgVersion;
 
-            if (String.IsNullOrEmpty(pgUser))
-            {
-                PgUser = PG_SUPERUSER;
-            }
-            else
-            {
-                PgUser = pgUser;
-            }
+            PgUser = String.IsNullOrEmpty(pgUser) ? PgSuperuser : pgUser;
 
-            if (string.IsNullOrEmpty(dbDir))
-            {
-                DbDir = Path.Combine(".", "pg_embed");
-            }
-            else
-            {
-                DbDir = Path.Combine(dbDir, "pg_embed");
-            }
+            DbDir = Path.Combine(string.IsNullOrEmpty(dbDir) ? "." : dbDir, "pg_embed");
 
-            if (port == 0)
-            {
-                PgPort = Utils.GetAvailablePort();
-            }
-            else
-            {
-                PgPort = port;
-            }
+            PgPort = port == 0 ? Utils.GetAvailablePort() : port;
 
             if (pgServerParams != null)
             {
@@ -103,10 +82,7 @@ namespace MysticMind.PostgresEmbed
                 _pgExtensions.AddRange(pgExtensions);
             }
 
-            if (instanceId == null)
-            {
-                instanceId = Guid.NewGuid();
-            }
+            instanceId ??= Guid.NewGuid();
 
             _clearInstanceDirOnStop = clearInstanceDirOnStop;
             _clearWorkingDirOnStart = clearWorkingDirOnStart;
@@ -122,11 +98,11 @@ namespace MysticMind.PostgresEmbed
 
             // setup the policy for retry pertaining to downloading binary
             _downloadRetryPolicy =
-                Polly.Policy.Handle<Exception>()
+                Policy.Handle<Exception>()
                     .WaitAndRetry(new[] { TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(4) });
             //Set up the policy for retry pertaining to folder deletion.
             _deleteFoldersRetryPolicy =
-                Polly.Policy.Handle<Exception>()
+                Policy.Handle<Exception>()
                     .WaitAndRetry(deleteFolderRetryCount, retryAttempt =>TimeSpan.FromMilliseconds(deleteFolderInitialTimeout *(int) Math.Pow(deleteFolderTimeoutFactor, retryAttempt-1)));
 
             if (!string.IsNullOrEmpty(locale))
@@ -155,13 +131,7 @@ namespace MysticMind.PostgresEmbed
 
         public string Locale { get; private set; }
 
-        public string PgDbName
-        {
-            get
-            {
-                return PG_DBNAME; 
-            }
-        }
+        public string PgDbName => PgDbname;
 
         private void DownloadPgBinary()
         {
@@ -181,7 +151,7 @@ namespace MysticMind.PostgresEmbed
         {
             foreach (var extnConfig in _pgExtensions)
             {
-                var pgExtensionInstance = new PgExtension(PgVersion, PG_HOST, PgPort, PgUser, PgDbName, BinariesDir, PgDir, extnConfig);
+                var pgExtensionInstance = new PgExtension(PgVersion, PgHost, PgPort, PgUser, PgDbName, BinariesDir, PgDir, extnConfig);
                 _downloadRetryPolicy.Execute(() => pgExtensionInstance.Download());
             }
         }
@@ -203,7 +173,7 @@ namespace MysticMind.PostgresEmbed
 
             if (!Directory.Exists(directoryPath))
             {
-                Trace.WriteLine(string.Format("Directory '{0}' is missing and can't be removed.", directoryPath));
+                Trace.WriteLine($"Directory '{directoryPath}' is missing and can't be removed.");
                 return;
             }
 
@@ -213,15 +183,15 @@ namespace MysticMind.PostgresEmbed
 
         private static void NormalizeAttributes(string directoryPath)
         {
-            string[] filePaths = Directory.GetFiles(directoryPath);
-            string[] subdirectoryPaths = Directory.GetDirectories(directoryPath);
+            var filePaths = Directory.GetFiles(directoryPath);
+            var subdirectoryPaths = Directory.GetDirectories(directoryPath);
 
-            foreach (string filePath in filePaths)
+            foreach (var filePath in filePaths)
             {
                 File.SetAttributes(filePath, FileAttributes.Normal);
             }
 
-            foreach (string subdirectoryPath in subdirectoryPaths)
+            foreach (var subdirectoryPath in subdirectoryPaths)
             {
                 NormalizeAttributes(subdirectoryPath);
             }
@@ -238,7 +208,7 @@ namespace MysticMind.PostgresEmbed
         {
             foreach (var extnConfig in _pgExtensions)
             {
-                var pgExtensionInstance = new PgExtension(PgVersion, PG_HOST, PgPort, PgUser, PgDbName, BinariesDir, PgDir, extnConfig);
+                var pgExtensionInstance = new PgExtension(PgVersion, PgHost, PgPort, PgUser, PgDbName, BinariesDir, PgDir, extnConfig);
                 _downloadRetryPolicy.Execute(() => pgExtensionInstance.Extract());
             }
         }
@@ -277,17 +247,16 @@ namespace MysticMind.PostgresEmbed
 
         private void InitDb()
         {
-            var filename = Path.Combine(PgBinDir, INITDB_EXE);
-            var args = new List<string>();
-
-            // add data dir
-            args.Add($"-D {DataDir}");
-
-            // add super user
-            args.Add($"-U {PgUser}");
-
-            // add encoding
-            args.Add("-E UTF-8");
+            var filename = Path.Combine(PgBinDir, InitDbExe);
+            var args = new List<string>
+            {
+                // add data dir
+                $"-D {DataDir}",
+                // add super user
+                $"-U {PgUser}",
+                // add encoding
+                "-E UTF-8"
+            };
 
             // add locale if provided
             if (Locale != null)
@@ -314,31 +283,28 @@ namespace MysticMind.PostgresEmbed
         {
             foreach (var extnConfig in _pgExtensions)
             {
-                var pgExtensionInstance = new PgExtension(PgVersion, PG_HOST, PgPort, PgUser, PgDbName, BinariesDir, PgDir, extnConfig);
+                var pgExtensionInstance = new PgExtension(PgVersion, PgHost, PgPort, PgUser, PgDbName, BinariesDir, PgDir, extnConfig);
                 _downloadRetryPolicy.Execute(() => pgExtensionInstance.CreateExtension());
             }
         }
 
         private bool VerifyReady()
         {
-            var filename = Path.Combine(PgBinDir, PSQL_EXE);
+            var filename = Path.Combine(PgBinDir, PsqlExe);
 
-            List<string> args = new List<string>();
-
-            // add host
-            args.Add($"-h {PG_HOST}");
-
-            //add port
-            args.Add($"-p {PgPort}");
-
-            //add  user
-            args.Add($"-U {PgUser}");
-
-            // add database name
-            args.Add($"-d {PgDbName}");
-
-            // add command
-            args.Add($"-c \"SELECT 1 as test\"");
+            var args = new List<string>
+            {
+                // add host
+                $"-h {PgHost}",
+                //add port
+                $"-p {PgPort}",
+                //add  user
+                $"-U {PgUser}",
+                // add database name
+                $"-d {PgDbName}",
+                // add command
+                $"-c \"SELECT 1 as test\""
+            };
 
             var result = Utils.RunProcess(filename, args);
 
@@ -347,24 +313,24 @@ namespace MysticMind.PostgresEmbed
 
         private void StartServer()
         {
-            var filename = Path.Combine(PgBinDir, PG_CTL_EXE);
+            var filename = Path.Combine(PgBinDir, PgCtlExe);
 
-            List<string> args = new List<string>();
-
-            // add the data dir arg
-            args.Add($"-D {DataDir}");
-
-            // add user
-            args.Add($"-U {PgUser}");
+            var args = new List<string>
+            {
+                // add the data dir arg
+                $"-D {DataDir}",
+                // add user
+                $"-U {PgUser}"
+            };
 
             // create the init options arg
-            var initOptions = new List<string>();
-
-            // run without fsync
-            initOptions.Add("-F");
-
-            //set the port
-            initOptions.Add($"-p {PgPort}");
+            var initOptions = new List<string>
+            {
+                // run without fsync
+                "-F",
+                //set the port
+                $"-p {PgPort}"
+            };
 
             // add the additional parameters passed
             initOptions.AddRange(_pgServerParams);
@@ -405,7 +371,7 @@ namespace MysticMind.PostgresEmbed
 
         private void WaitForServerStartup(Stopwatch watch)
         {
-            while (watch.ElapsedMilliseconds < PG_STARTUP_WAIT_MS)
+            while (watch.ElapsedMilliseconds < PgStartupWaitMs)
             {
                 // verify if server ready
                 if (VerifyReady())
@@ -418,29 +384,26 @@ namespace MysticMind.PostgresEmbed
 
             watch.Stop();
 
-            throw new IOException($"Gave up waiting for server to start after {PG_STARTUP_WAIT_MS}ms");
+            throw new IOException($"Gave up waiting for server to start after {PgStartupWaitMs}ms");
         }
 
         private void StopServer()
         {
-            var filename = Path.Combine(PgBinDir, PG_CTL_EXE);
+            var filename = Path.Combine(PgBinDir, PgCtlExe);
 
-            List<string> args = new List<string>();
-
-            // add data dir
-            args.Add($"-D {DataDir}");
-
-            // add user
-            args.Add($"-U {PgUser}");
-
-            // add stop mode
-            args.Add($"-m {PG_STOP_MODE}");
-
-            // stop wait secs
-            args.Add($"-t {PG_STOP_WAIT_S}");
-
-            // add stop action
-            args.Add("stop");
+            var args = new List<string>
+            {
+                // add data dir
+                $"-D {DataDir}",
+                // add user
+                $"-U {PgUser}",
+                // add stop mode
+                $"-m {PgStopMode}",
+                // stop wait secs
+                $"-t {PgStopWaitS}",
+                // add stop action
+                "stop"
+            };
 
             try
             {
@@ -448,6 +411,7 @@ namespace MysticMind.PostgresEmbed
             }
             catch
             {
+                // ignored
             }
         }
 
@@ -459,6 +423,7 @@ namespace MysticMind.PostgresEmbed
             }
             catch
             {
+                // ignored
             }
         }
 
@@ -514,14 +479,14 @@ namespace MysticMind.PostgresEmbed
 
         public async Task StartAsync(CancellationToken token)
         {
-            await Task.Run(() => Start(), token);
+            await Task.Run(Start, token);
         }
 
         public async Task StartAsync() => await StartAsync(CancellationToken.None);
 
         public async Task StopAsync(CancellationToken token)
         {
-            await Task.Run(() => Stop(), token);
+            await Task.Run(Stop, token);
         }
 
         public async Task StopAsync() => await StopAsync(CancellationToken.None);
