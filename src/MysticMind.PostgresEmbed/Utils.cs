@@ -61,7 +61,7 @@ namespace MysticMind.PostgresEmbed
 
         public static void ExtractZip(string zipFile, string destDir, string extractPath="", bool ignoreRootDir=false)
         {
-            ZipFile.ExtractToDirectory(zipFile, destDir);
+            ZipFile.ExtractToDirectory(zipFile, destDir, overwriteFiles: true);
         }
 
         public static void ExtractZipFolder(string zipFile, string destDir, string extractPath = "", bool ignoreRootDir = false)
@@ -90,7 +90,7 @@ namespace MysticMind.PostgresEmbed
                 }
                 else
                 {
-                    entry.ExtractToFile(fullPath);
+                    entry.ExtractToFile(fullPath, overwrite: true);
                 }
             }
         }

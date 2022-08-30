@@ -296,5 +296,27 @@ namespace MysticMind.PostgresEmbed.Tests
                 await server.StopAsync();
             }
         }
+
+        [Fact]
+        public async Task Bug_19_authors_md_file_already_exists()
+        {
+            var extensions = new List<PgExtensionConfig>();
+
+            extensions.Add(new PgExtensionConfig(
+                "https://download.osgeo.org/postgis/windows/pg96/postgis-bundle-pg96-3.2.3x64.zip",
+                new List<string>
+                {
+                    "CREATE EXTENSION postgis"
+                }
+            ));
+
+            using var server = new PgServer(
+                "9.6.2.1",
+                PgUser,
+                pgExtensions: extensions,
+                addLocalUserAccessPermission: AddLocalUserAccessPermission,
+                clearInstanceDirOnStop: true);
+            await server.StartAsync();
+        }
     }
 }
