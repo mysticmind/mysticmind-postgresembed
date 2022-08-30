@@ -216,6 +216,10 @@ The fix is to pass a flag `addLocalUserAccessPermission` as `true` and the syste
 icacls.exe c:\pg_embed\aa60c634-fa20-4fa8-b4fc-a43a3b08aa99 /t /grant:r <user>:(OI)(OC)F
 ```
 
+### InitDb failure with a large negative number
+
+If you are seeing failures with `initdb` with a large negative number then it could be a dependency library issue for Postgres itself, you would need to install [Visual C++ Redistributable Packages for Visual Studio 2013](https://www.microsoft.com/en-us/download/details.aspx?id=40784) to make `MSVCR120.dll` available for Postgres to use.
+
 Note:
 1. The local account should have rights to change folder permissions otherwise the operation will result in an exception.
 2. You may not face this issue in development environments.
