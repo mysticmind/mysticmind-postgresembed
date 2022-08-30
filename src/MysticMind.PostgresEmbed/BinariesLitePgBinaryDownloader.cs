@@ -17,11 +17,11 @@ namespace MysticMind.PostgresEmbed
 {
     internal class PgBinariesLiteBinaryDownloader
     {
-        private const string FILE_NAME = "postgresql-{0}-windows-x64-binaries-lite.zip";
+        private const string FileName = "postgresql-{0}-windows-x64-binaries-lite.zip";
 
-        private string _pgVersion;
+        private readonly string _pgVersion;
 
-        private string _destDir;
+        private readonly string _destDir;
 
         public PgBinariesLiteBinaryDownloader(string pgVersion, string destDir)
         {
@@ -37,25 +37,22 @@ namespace MysticMind.PostgresEmbed
             var package = new PackageIdentity("PostgreSql.Binaries.Lite", NuGetVersion.Parse(_pgVersion));
             
             var pathContext = NuGetPathContext.Create(settings);
-            var localSources = new List<string>();
-            localSources.Add(pathContext.UserPackageFolder);
+            var localSources = new List<string> { pathContext.UserPackageFolder };
             localSources.AddRange(pathContext.FallbackPackageFolders);
 
-            using (var cacheContext = new SourceCacheContext())
-            {
-                var repositories = localSources
-                    .Select(path => sourceRepositoryProvider.CreateRepository(new PackageSource(path), FeedType.FileSystemV3))
-                    .Concat(sourceRepositoryProvider.GetRepositories());
+            using var cacheContext = new SourceCacheContext();
+            var repositories = localSources
+                .Select(path => sourceRepositoryProvider.CreateRepository(new PackageSource(path), FeedType.FileSystemV3))
+                .Concat(sourceRepositoryProvider.GetRepositories());
                 
-                foreach (var sourceRepository in repositories)
+            foreach (var sourceRepository in repositories)
+            {
+                var dependencyInfoResource = await sourceRepository.GetResourceAsync<DependencyInfoResource>();
+                var dependencyInfo = await dependencyInfoResource.ResolvePackage(
+                    package, NuGetFramework.AnyFramework, cacheContext, NullLogger.Instance, cancellationToken);
+                if (dependencyInfo != null)
                 {
-                    var dependencyInfoResource = await sourceRepository.GetResourceAsync<DependencyInfoResource>();
-                    var dependencyInfo = await dependencyInfoResource.ResolvePackage(
-                        package, NuGetFramework.AnyFramework, cacheContext, NullLogger.Instance, cancellationToken);
-                    if (dependencyInfo != null)
-                    {
-                        return dependencyInfo.DownloadUri;
-                    }
+                    return dependencyInfo.DownloadUri;
                 }
             }
 
@@ -85,7 +82,7 @@ namespace MysticMind.PostgresEmbed
             {
                 // Download from the nuget repository
                 var downloadPath = Path.Combine(_destDir, $@"PostgreSql.Binaries.Lite.{_pgVersion}.nupkg");
-                var progress = new System.Progress<double>();
+                var progress = new Progress<double>();
                 progress.ProgressChanged += (sender, value) => Console.WriteLine("\r %{0:N0}", value);
                 Utils.DownloadAsync(url.AbsoluteUri, downloadPath, progress, cs.Token).Wait();
                 return ExtractContent(downloadPath, zipFile);
@@ -96,17 +93,9 @@ namespace MysticMind.PostgresEmbed
         {
             var versionParts = _pgVersion.Split('.');
 
-            string zipFilename = "";
-
-            if (versionParts.Length > 3)
-            {
-                zipFilename = string.Format(FILE_NAME,
-                    $"{versionParts[0]}.{versionParts[1]}.{versionParts[2]}-{versionParts[3]}");
-            }
-            else
-            {
-                zipFilename = string.Format(FILE_NAME, $"{versionParts[0]}.{versionParts[1]}-{versionParts[2]}");
-            }
+            var zipFilename = string.Format(FileName, versionParts.Length > 3 
+                ? $"{versionParts[0]}.{versionParts[1]}.{versionParts[2]}-{versionParts[3]}" 
+                : $"{versionParts[0]}.{versionParts[1]}-{versionParts[2]}");
 
             return Path.Combine(_destDir, zipFilename);
         }
@@ -114,24 +103,18 @@ namespace MysticMind.PostgresEmbed
         private string ExtractContent(string nupkgFile, string outputFile)
         {
             // extract the PG binary zip file
-            using (var archive = ZipFile.OpenRead(nupkgFile))
-            {
-                var result = from entry in archive.Entries
-                    where Path.GetDirectoryName(entry.FullName) == "content"
-                    where !string.IsNullOrEmpty(entry.Name)
-                    select entry;
+            using var archive = ZipFile.OpenRead(nupkgFile);
+            var result = from entry in archive.Entries
+                where Path.GetDirectoryName(entry.FullName) == "content"
+                where !string.IsNullOrEmpty(entry.Name)
+                select entry;
 
-                var pgBinaryZipFile = result.FirstOrDefault();
+            var pgBinaryZipFile = result.FirstOrDefault();
 
-                if (pgBinaryZipFile != null)
-                {
-                    pgBinaryZipFile.ExtractToFile(outputFile, true);
+            if (pgBinaryZipFile == null) return string.Empty;
+            pgBinaryZipFile.ExtractToFile(outputFile, true);
 
-                    return outputFile;
-                }
-
-                return string.Empty;
-            }
+            return outputFile;
         }
     }
 }

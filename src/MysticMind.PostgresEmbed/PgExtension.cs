@@ -10,29 +10,29 @@ namespace MysticMind.PostgresEmbed
 
     internal class PgExtension
     {
-        private const string PSQL_EXE = "psql.exe";
+        private const string PsqlExe = "psql.exe";
 
-        private string _pgVersion;
+        private readonly string _pgVersion;
 
-        private string _pgHost;
+        private readonly string _pgHost;
 
-        private int _pgPort;
+        private readonly int _pgPort;
 
-        private string _pgUser;
+        private readonly string _pgUser;
 
-        private string _pgDbName;
+        private readonly string _pgDbName;
 
-        private string _binariesDir;
+        private readonly string _binariesDir;
 
-        private string _pgDir;
+        private readonly string _pgDir;
 
-        private PgExtensionConfig _config;
+        private readonly PgExtensionConfig _config;
 
-        private string _filename;
+        private readonly string _filename;
 
         public PgExtension(
             string pgVersion,
-            string pghost,
+            string pgHost,
             int pgPort,
             string pgUser,
             string pgDbName,
@@ -41,7 +41,7 @@ namespace MysticMind.PostgresEmbed
             PgExtensionConfig config)
         {
             _pgVersion = pgVersion;
-            _pgHost = pghost;
+            _pgHost = pgHost;
             _pgPort = pgPort;
             _pgUser = pgUser;
             _pgDbName = pgDbName;
@@ -64,14 +64,14 @@ namespace MysticMind.PostgresEmbed
                 return zipFile;
             }
 
-            var progress = new System.Progress<double>();
+            var progress = new Progress<double>();
             progress.ProgressChanged += (sender, value) => Console.WriteLine("\r %{0:N0}", value);
 
             try
             {
                 // download the file
                 var cs = new CancellationTokenSource();
-                Utils.DownloadAsync(_config.DownloadUrl, zipFile, progress, cs.Token).Wait();
+                Utils.DownloadAsync(_config.DownloadUrl, zipFile, progress, cs.Token).Wait(cs.Token);
             }
             catch (Exception ex)
             {
@@ -97,27 +97,24 @@ namespace MysticMind.PostgresEmbed
 
         public void CreateExtension()
         {
-            // create a single sql command with semicolon seperators
+            // create a single sql command with semicolon separators
             var sql = string.Join(";", _config.CreateExtensionSqlList);
 
-            var args = new List<string>();
+            var args = new List<string>
+            {
+                // add host
+                $"-h {_pgHost}",
+                // add port
+                $"-p {_pgPort}",
+                // add user
+                $"-U {_pgUser}",
+                // add database name
+                $"-d {this._pgDbName}",
+                // add command
+                $"-c \"{sql}\""
+            };
 
-            // add host
-            args.Add($"-h {_pgHost}");
-
-            // add port
-            args.Add($"-p {_pgPort}");
-
-            // add user
-            args.Add($"-U {_pgUser}");
-
-            // add database name
-            args.Add($"-d {this._pgDbName}");
-
-            // add command
-            args.Add($"-c \"{sql}\"");
-
-            var filename = Path.Combine(_pgDir, "bin", PSQL_EXE);
+            var filename = Path.Combine(_pgDir, "bin", PsqlExe);
 
             try
             {
@@ -137,26 +134,22 @@ namespace MysticMind.PostgresEmbed
         private string GetContainerFolderInBinary(string zipFile)
         {
             //some of the extension binaries may have a root folder which need to be ignored while extracting content
-            string containerFolder = "";
+            var containerFolder = "";
 
-            using (var archive = ZipFile.OpenRead(zipFile))
+            using var archive = ZipFile.OpenRead(zipFile);
+            var result = from entry in archive.Entries
+                where entry.FullName.EndsWith("/bin/") ||
+                      entry.FullName.EndsWith("/lib/") || 
+                      entry.FullName.EndsWith("/share/")
+                select entry;
+
+            var item = result.FirstOrDefault();
+
+            if (item == null) return containerFolder;
+            var parts = item.FullName.Split('/');
+            if (parts.Length > 1)
             {
-                var result = from entry in archive.Entries
-                             where entry.FullName.EndsWith("/bin/") ||
-                             entry.FullName.EndsWith("/lib/") || 
-                             entry.FullName.EndsWith("/share/")
-                             select entry;
-
-                var item = result.FirstOrDefault();
-
-                if (item != null)
-                {
-                    var parts = item.FullName.Split('/');
-                    if (parts.Length > 1)
-                    {
-                        containerFolder = parts[0];
-                    }
-                }
+                containerFolder = parts[0];
             }
 
             return containerFolder;
