@@ -44,7 +44,7 @@ namespace MysticMind.PostgresEmbed
 
         private readonly Policy _downloadRetryPolicy;
         private readonly Policy _deleteFoldersRetryPolicy;
-        public string _nugetPackage { get; private set; }
+        private readonly string _nugetPackage;
 
         public PgServer(
             string pgVersion,
