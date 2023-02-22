@@ -23,10 +23,13 @@ namespace MysticMind.PostgresEmbed
 
         private readonly string _destDir;
 
-        public PgBinariesLiteBinaryDownloader(string pgVersion, string destDir)
+        private readonly string _nugetPackage;
+
+        public PgBinariesLiteBinaryDownloader(string pgVersion, string destDir, string nugetPackage)
         {
             _pgVersion = pgVersion;
             _destDir = destDir;
+            _nugetPackage = nugetPackage ?? "PostgreSql.Binaries.Lite";
         }
 
         private async Task<Uri> GetNugetUri(CancellationToken cancellationToken)
@@ -34,7 +37,7 @@ namespace MysticMind.PostgresEmbed
             var settings = Settings.LoadDefaultSettings(null);
             var packageSourceProvider = new PackageSourceProvider(settings);
             var sourceRepositoryProvider = new SourceRepositoryProvider(packageSourceProvider, FactoryExtensionsV3.GetCoreV3(Repository.Provider));
-            var package = new PackageIdentity("PostgreSql.Binaries.Lite", NuGetVersion.Parse(_pgVersion));
+            var package = new PackageIdentity(_nugetPackage, NuGetVersion.Parse(_pgVersion));
             
             var pathContext = NuGetPathContext.Create(settings);
             var localSources = new List<string> { pathContext.UserPackageFolder };
@@ -56,7 +59,7 @@ namespace MysticMind.PostgresEmbed
                 }
             }
 
-            throw new Exception("Could not find PostgreSql.Binaries.Lite package");
+            throw new Exception($"Could not find {_nugetPackage} package");
         }
 
         public string Download()
@@ -81,7 +84,7 @@ namespace MysticMind.PostgresEmbed
             else
             {
                 // Download from the nuget repository
-                var downloadPath = Path.Combine(_destDir, $@"PostgreSql.Binaries.Lite.{_pgVersion}.nupkg");
+                var downloadPath = Path.Combine(_destDir, $@"{_nugetPackage}.{_pgVersion}.nupkg");
                 var progress = new Progress<double>();
                 progress.ProgressChanged += (sender, value) => Console.WriteLine("\r %{0:N0}", value);
                 Utils.DownloadAsync(url.AbsoluteUri, downloadPath, progress, cs.Token).Wait();
