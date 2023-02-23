@@ -44,6 +44,7 @@ namespace MysticMind.PostgresEmbed
 
         private readonly Policy _downloadRetryPolicy;
         private readonly Policy _deleteFoldersRetryPolicy;
+        private readonly string _nugetPackage;
 
         public PgServer(
             string pgVersion,
@@ -59,7 +60,8 @@ namespace MysticMind.PostgresEmbed
             int deleteFolderRetryCount =5, 
             int deleteFolderInitialTimeout =16, 
             int deleteFolderTimeoutFactor =2,
-            string locale = null)
+            string locale = null,
+            string nugetPackage = null)
         {
             PgVersion = pgVersion;
 
@@ -94,7 +96,8 @@ namespace MysticMind.PostgresEmbed
             PgDir = Path.Combine(InstanceDir, "pgsql");
             PgBinDir = Path.Combine(PgDir, "bin");
             DataDir = Path.Combine(InstanceDir, "data");
-            
+
+            _nugetPackage = nugetPackage;
 
             // setup the policy for retry pertaining to downloading binary
             _downloadRetryPolicy =
@@ -135,7 +138,7 @@ namespace MysticMind.PostgresEmbed
 
         private void DownloadPgBinary()
         {
-            var downloader = new PgBinariesLiteBinaryDownloader(PgVersion, BinariesDir);
+            var downloader = new PgBinariesLiteBinaryDownloader(PgVersion, BinariesDir, _nugetPackage);
 
             try
             {
