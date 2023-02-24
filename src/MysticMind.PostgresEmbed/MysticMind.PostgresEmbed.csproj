@@ -6,7 +6,7 @@
     <AssemblyTitle>MysticMind.PostgresEmbed</AssemblyTitle>
     <VersionPrefix>1.0.0</VersionPrefix>
     <Authors>Babu Annamalai</Authors>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFrameworks>net6.0;net7.0</TargetFrameworks>
     <AssemblyName>MysticMind.PostgresEmbed</AssemblyName>
     <PackageId>MysticMind.PostgresEmbed</PackageId>
     <PackageTags>postgres;postgresql;pg;embed;embedded;server;.net 4.6;net 4.6;net46;.net core;net core;netcore;netcore 2.0;netcore rtm</PackageTags>
@@ -16,7 +16,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NuGet.Protocol" Version="6.3.1" />
+    <PackageReference Include="NuGet.Protocol" Version="6.5.0" />
     <PackageReference Include="Polly" Version="7.2.3" />
     <PackageReference Include="System.Diagnostics.Process" Version="4.3.0" />
     <PackageReference Include="System.IO.Compression.ZipFile" Version="4.3.0" />

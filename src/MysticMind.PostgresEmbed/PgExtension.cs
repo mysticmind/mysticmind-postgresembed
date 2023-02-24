@@ -65,7 +65,7 @@ namespace MysticMind.PostgresEmbed
             }
 
             var progress = new Progress<double>();
-            progress.ProgressChanged += (sender, value) => Console.WriteLine("\r %{0:N0}", value);
+            progress.ProgressChanged += (_, value) => Console.WriteLine("\r %{0:N0}", value);
 
             try
             {

@@ -12,7 +12,7 @@ namespace MysticMind.PostgresEmbed.Tests
         private const string ConnStr = "Server=localhost;Port={0};User Id={1};Password=test;Database=postgres;Pooling=false";
 
         // this required for the appveyor CI build to set full access for appveyor user on instance folder
-        private const bool AddLocalUserAccessPermission = true;
+        private const bool AddLocalUserAccessPermission = false;
 
         [Fact]
         public void create_server_and_table_test()
@@ -110,8 +110,8 @@ namespace MysticMind.PostgresEmbed.Tests
             var extensions = new List<PgExtensionConfig>
             {
                 // plv8 extension
-                new PgExtensionConfig(
-                    "http://www.postgresonline.com/downloads/pg95plv8jsbin_w64.zip",
+                new (
+                    "https://www.postgresonline.com/downloads/pg95plv8jsbin_w64.zip",
                     new List<string> { "CREATE EXTENSION plv8" }
                 )
             };
@@ -128,16 +128,17 @@ namespace MysticMind.PostgresEmbed.Tests
         [Fact]
         public void create_server_with_postgis_extension_test()
         {
-            var extensions = new List<PgExtensionConfig>();
-            
-            extensions.Add(new PgExtensionConfig(
-                    "http://download.osgeo.org/postgis/windows/pg96/archive/postgis-bundle-pg96-2.5.1x64.zip",
+            var extensions = new List<PgExtensionConfig>
+            {
+                new PgExtensionConfig(
+                    "https://download.osgeo.org/postgis/windows/pg96/archive/postgis-bundle-pg96-2.5.1x64.zip",
                     new List<string>
-                        {
-                            "CREATE EXTENSION postgis",
-                            "CREATE EXTENSION fuzzystrmatch"
-                        }
-                ));
+                    {
+                        "CREATE EXTENSION postgis",
+                        "CREATE EXTENSION fuzzystrmatch"
+                    }
+                )
+            };
 
             using var server = new PgServer(
                 "9.6.2.1", 
@@ -189,7 +190,7 @@ namespace MysticMind.PostgresEmbed.Tests
             {
                 server.Start();
 
-                // assert if instance id drectory exists
+                // assert if instance id directory exists
                 Assert.True(Directory.Exists(server.InstanceDir));
 
                 // Note: set pooling to false to prevent connecting issues
@@ -300,15 +301,16 @@ namespace MysticMind.PostgresEmbed.Tests
         [Fact]
         public async Task Bug_19_authors_md_file_already_exists()
         {
-            var extensions = new List<PgExtensionConfig>();
-
-            extensions.Add(new PgExtensionConfig(
-                "https://download.osgeo.org/postgis/windows/pg96/postgis-bundle-pg96-3.2.3x64.zip",
-                new List<string>
-                {
-                    "CREATE EXTENSION postgis"
-                }
-            ));
+            var extensions = new List<PgExtensionConfig>
+            {
+                new(
+                    "https://download.osgeo.org/postgis/windows/pg96/postgis-bundle-pg96-3.2.3x64.zip",
+                    new List<string>
+                    {
+                        "CREATE EXTENSION postgis"
+                    }
+                )
+            };
 
             using var server = new PgServer(
                 "9.6.2.1",

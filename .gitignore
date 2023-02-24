@@ -254,3 +254,6 @@ paket-files/
 
 # ignore folder used for running tests
 pg_embed
+
+**/.DS_Store
+src/MysticMind.PostgresEmbed.sln.DotSettings

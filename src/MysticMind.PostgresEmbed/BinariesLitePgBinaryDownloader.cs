@@ -50,7 +50,7 @@ namespace MysticMind.PostgresEmbed
                 
             foreach (var sourceRepository in repositories)
             {
-                var dependencyInfoResource = await sourceRepository.GetResourceAsync<DependencyInfoResource>();
+                var dependencyInfoResource = await sourceRepository.GetResourceAsync<DependencyInfoResource>(cancellationToken);
                 var dependencyInfo = await dependencyInfoResource.ResolvePackage(
                     package, NuGetFramework.AnyFramework, cacheContext, NullLogger.Instance, cancellationToken);
                 if (dependencyInfo != null)
@@ -86,7 +86,7 @@ namespace MysticMind.PostgresEmbed
                 // Download from the nuget repository
                 var downloadPath = Path.Combine(_destDir, $@"{_nugetPackage}.{_pgVersion}.nupkg");
                 var progress = new Progress<double>();
-                progress.ProgressChanged += (sender, value) => Console.WriteLine("\r %{0:N0}", value);
+                progress.ProgressChanged += (_, value) => Console.WriteLine("\r %{0:N0}", value);
                 Utils.DownloadAsync(url.AbsoluteUri, downloadPath, progress, cs.Token).Wait();
                 return ExtractContent(downloadPath, zipFile);
             }

@@ -14,11 +14,11 @@ namespace MysticMind.PostgresEmbed
 {
     internal class ProcessResult
     {
-        public int ExitCode { get; set; }
+        public int ExitCode { get; init; }
 
-        public string Output { get; set; }
+        public string Output { get; init; }
 
-        public string Error { get; set; }
+        public string Error { get; init; }
     }
 
     internal static class Utils
@@ -107,7 +107,7 @@ namespace MysticMind.PostgresEmbed
                                where n.LocalEndPoint.Port >= startingPort
                                select n.LocalEndPoint.Port);
 
-            //getting active tcp listners
+            //getting active tcp listeners
             var endPoints = properties.GetActiveTcpListeners();
             portArray.AddRange(from n in endPoints
                                where n.Port >= startingPort
@@ -138,13 +138,13 @@ namespace MysticMind.PostgresEmbed
             p.StartInfo.RedirectStandardOutput = true;
             p.StartInfo.UseShellExecute = false;
             p.EnableRaisingEvents = true;
-            p.OutputDataReceived += (sender, e) =>
+            p.OutputDataReceived += (_, e) =>
             {
                 if (!string.IsNullOrEmpty(e.Data))
                     outputBuilder.AppendLine(e.Data);
             };
 
-            p.ErrorDataReceived += (sender, e) =>
+            p.ErrorDataReceived += (_, e) =>
             {
                 if (!string.IsNullOrEmpty(e.Data))
                     errorBuilder.AppendLine(e.Data);

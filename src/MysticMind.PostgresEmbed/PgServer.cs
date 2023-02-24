@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Diagnostics;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Polly;
@@ -152,9 +153,8 @@ namespace MysticMind.PostgresEmbed
 
         private void DownloadPgExtensions()
         {
-            foreach (var extnConfig in _pgExtensions)
+            foreach (var pgExtensionInstance in _pgExtensions.Select(extensionConfig => new PgExtension(PgVersion, PgHost, PgPort, PgUser, PgDbName, BinariesDir, PgDir, extensionConfig)))
             {
-                var pgExtensionInstance = new PgExtension(PgVersion, PgHost, PgPort, PgUser, PgDbName, BinariesDir, PgDir, extnConfig);
                 _downloadRetryPolicy.Execute(() => pgExtensionInstance.Download());
             }
         }
@@ -209,9 +209,9 @@ namespace MysticMind.PostgresEmbed
 
         private void ExtractPgExtensions()
         {
-            foreach (var extnConfig in _pgExtensions)
+            foreach (var extensionConfig in _pgExtensions)
             {
-                var pgExtensionInstance = new PgExtension(PgVersion, PgHost, PgPort, PgUser, PgDbName, BinariesDir, PgDir, extnConfig);
+                var pgExtensionInstance = new PgExtension(PgVersion, PgHost, PgPort, PgUser, PgDbName, BinariesDir, PgDir, extensionConfig);
                 _downloadRetryPolicy.Execute(() => pgExtensionInstance.Extract());
             }
         }
@@ -284,9 +284,9 @@ namespace MysticMind.PostgresEmbed
 
         private void CreateExtensions()
         {
-            foreach (var extnConfig in _pgExtensions)
+            foreach (var extensionConfig in _pgExtensions)
             {
-                var pgExtensionInstance = new PgExtension(PgVersion, PgHost, PgPort, PgUser, PgDbName, BinariesDir, PgDir, extnConfig);
+                var pgExtensionInstance = new PgExtension(PgVersion, PgHost, PgPort, PgUser, PgDbName, BinariesDir, PgDir, extensionConfig);
                 _downloadRetryPolicy.Execute(() => pgExtensionInstance.CreateExtension());
             }
         }
