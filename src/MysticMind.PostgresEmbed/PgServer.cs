@@ -207,7 +207,7 @@ namespace MysticMind.PostgresEmbed
             switch (Path.GetExtension(_pgBinaryFullPath))
             {
                 case ".txz":
-                    Utils.ExtractTxz(_pgBinaryFullPath, Path.Join(InstanceDir, "pgsql"));
+                    Utils.ExtractTxz(_pgBinaryFullPath, PgDir);
                     break;
                 default:
                     Utils.ExtractZip(_pgBinaryFullPath, InstanceDir);
