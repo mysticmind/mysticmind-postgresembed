@@ -139,7 +139,7 @@ namespace MysticMind.PostgresEmbed
 
         private void DownloadPgBinary()
         {
-            var downloader = new DefaultPostgresBinaryDownloader(PgVersion, BinariesDir, Platform.Windows, Architecture.I386 );
+            var downloader = new DefaultPostgresBinaryDownloader(PgVersion, BinariesDir, Platform.Windows, Architecture.Amd64 );
 
             try
             {
