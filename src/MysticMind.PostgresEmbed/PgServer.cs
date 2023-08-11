@@ -27,7 +27,7 @@ namespace MysticMind.PostgresEmbed
 
         private const string InitDbExe = "initdb.exe";
 
-        private const string PsqlExe = "psql.exe";
+        private const string PsqlExe = "postgres.exe";
 
         private string _pgBinaryFullPath;
 
