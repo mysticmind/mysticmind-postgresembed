@@ -86,7 +86,7 @@ namespace MysticMind.PostgresEmbed
             var zipFile = Path.Combine(_binariesDir, _filename);
 
             // some extensions such as plv8 hs a container folder
-            // when we  extract the binary archive, it get extracted with the container folder
+            // when we extract the binary archive, it get extracted with the container folder
             // we want the contents without the container folder for the extensions to install properly
             var containerFolderInBinary = GetContainerFolderInBinary(zipFile);
 

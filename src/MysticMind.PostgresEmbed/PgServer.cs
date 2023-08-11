@@ -139,7 +139,7 @@ namespace MysticMind.PostgresEmbed
 
         private void DownloadPgBinary()
         {
-            var downloader = new PgBinariesLiteBinaryDownloader(PgVersion, BinariesDir, _nugetPackage);
+            var downloader = new DefaultPostgresBinaryDownloader(PgVersion, BinariesDir, Platform.Windows, Architecture.I386 );
 
             try
             {
@@ -204,7 +204,15 @@ namespace MysticMind.PostgresEmbed
 
         private void ExtractPgBinary()
         {
-            Utils.ExtractZip(_pgBinaryFullPath, InstanceDir);
+            switch (Path.GetExtension(_pgBinaryFullPath))
+            {
+                case ".txz":
+                    Utils.ExtractTxz(_pgBinaryFullPath, Path.Join(InstanceDir, "pgsql"));
+                    break;
+                default:
+                    Utils.ExtractZip(_pgBinaryFullPath, InstanceDir);
+                    break;
+            }
         }
 
         private void ExtractPgExtensions()

@@ -18,7 +18,7 @@ namespace MysticMind.PostgresEmbed.Tests
         public void create_server_and_table_test()
         {
             using var server = new PgServer(
-                "9.5.5.1", 
+                "9.6.9", 
                 PgUser, 
                 addLocalUserAccessPermission: AddLocalUserAccessPermission,
                 clearInstanceDirOnStop:true);
@@ -54,7 +54,7 @@ namespace MysticMind.PostgresEmbed.Tests
             };
 
             using var server = new PgServer(
-                "9.5.5.1", 
+                "9.6.9", 
                 PgUser, 
                 pgServerParams: serverParams, 
                 addLocalUserAccessPermission: AddLocalUserAccessPermission,
@@ -79,7 +79,7 @@ namespace MysticMind.PostgresEmbed.Tests
         public void create_server_without_using_block()
         {
             var server = new PgServer(
-                "9.5.5.1", 
+                "9.6.9", 
                 PgUser,
                 addLocalUserAccessPermission: AddLocalUserAccessPermission,
                 clearInstanceDirOnStop: true);
@@ -117,7 +117,7 @@ namespace MysticMind.PostgresEmbed.Tests
             };
 
             using var server = new PgServer(
-                "9.5.5.1", 
+                "9.6.9", 
                 PgUser, 
                 pgExtensions: extensions,
                 addLocalUserAccessPermission: AddLocalUserAccessPermission,
@@ -141,7 +141,7 @@ namespace MysticMind.PostgresEmbed.Tests
             };
 
             using var server = new PgServer(
-                "9.6.2.1", 
+                "9.6.9", 
                 PgUser, 
                 pgExtensions: extensions,
                 addLocalUserAccessPermission: AddLocalUserAccessPermission,
@@ -153,7 +153,7 @@ namespace MysticMind.PostgresEmbed.Tests
         public void create_server_with_user_defined_instance_id_and_table_test()
         {
             using var server = new PgServer(
-                "9.5.5.1",
+                "9.6.9",
                 PgUser,
                 addLocalUserAccessPermission: AddLocalUserAccessPermission,
                 instanceId: Guid.NewGuid(),
@@ -183,7 +183,7 @@ namespace MysticMind.PostgresEmbed.Tests
             var instanceId = Guid.NewGuid();
 
             using (var server = new PgServer(
-                "9.5.5.1",
+                "9.6.9",
                 PgUser,
                 addLocalUserAccessPermission: AddLocalUserAccessPermission,
                 instanceId: instanceId))
@@ -208,7 +208,7 @@ namespace MysticMind.PostgresEmbed.Tests
             }
 
             using (var server = new PgServer(
-                "9.5.5.1",
+                "9.6.9",
                 PgUser,
                 addLocalUserAccessPermission: AddLocalUserAccessPermission,
                 instanceId: instanceId,
@@ -225,7 +225,7 @@ namespace MysticMind.PostgresEmbed.Tests
         public void create_server_without_version_suffix()
         {
             using var server = new PgServer(
-                "10.5.1",
+                "10.5.0",
                 PgUser,
                 addLocalUserAccessPermission: AddLocalUserAccessPermission,
                 clearInstanceDirOnStop: true);
@@ -249,7 +249,7 @@ namespace MysticMind.PostgresEmbed.Tests
         public async Task create_server_async_and_table_test()
         {
             using var server = new PgServer(
-                "9.5.5.1",
+                "9.6.9",
                 PgUser,
                 addLocalUserAccessPermission: AddLocalUserAccessPermission,
                 clearInstanceDirOnStop:true);
@@ -273,7 +273,7 @@ namespace MysticMind.PostgresEmbed.Tests
         public async Task create_server_async_without_using_block()
         {
             var server = new PgServer(
-                "9.5.5.1", 
+                "9.6.9", 
                 PgUser,
                 addLocalUserAccessPermission: AddLocalUserAccessPermission,
                 clearInstanceDirOnStop: true);
@@ -313,7 +313,7 @@ namespace MysticMind.PostgresEmbed.Tests
             };
 
             using var server = new PgServer(
-                "9.6.2.1",
+                "9.6.9",
                 PgUser,
                 pgExtensions: extensions,
                 addLocalUserAccessPermission: AddLocalUserAccessPermission,

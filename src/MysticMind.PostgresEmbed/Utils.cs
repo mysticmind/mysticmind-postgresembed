@@ -9,6 +9,8 @@ using System.Net.NetworkInformation;
 using System.IO.Compression;
 using System.Text;
 using System.Diagnostics;
+using SharpCompress.Common;
+using SharpCompress.Readers;
 
 namespace MysticMind.PostgresEmbed
 {
@@ -62,6 +64,32 @@ namespace MysticMind.PostgresEmbed
         public static void ExtractZip(string zipFile, string destDir, string extractPath="", bool ignoreRootDir=false)
         {
             ZipFile.ExtractToDirectory(zipFile, destDir, overwriteFiles: true);
+        }
+        
+        public static void ExtractTxz(string zipFile, string destDir, string extractPath="", bool ignoreRootDir=false)
+        {
+            using Stream stream = File.OpenRead(zipFile);
+            using var reader = ReaderFactory.Open(stream);
+            while (reader.MoveToNextEntry())
+            {
+                if (reader.Entry.IsDirectory) continue;
+                // Specify the extraction path for the entry
+                var extractionPath = Path.Combine(destDir, reader.Entry.Key);
+
+                // Ensure that the target directory exists
+                var targetDirectory = Path.GetDirectoryName(extractionPath);
+                if (!Directory.Exists(targetDirectory))
+                {
+                    Directory.CreateDirectory(targetDirectory!);    
+                }
+
+                reader.WriteEntryToFile(extractionPath, new ExtractionOptions()
+                {
+                    ExtractFullPath = true,
+                    Overwrite = true,
+                    // PreserveAttributes = true
+                });
+            }
         }
 
         public static void ExtractZipFolder(string zipFile, string destDir, string extractPath = "", bool ignoreRootDir = false)
