@@ -4,7 +4,7 @@ This is a library for running a Postgres server embedded equivalent including ex
 
 Note that until v2.x, this library was only supporting Windows.
 
-By default, this project uses the minimum binaries published by [zonkyio/embedded-postgres-binaries](https://github.com/zonkyio/embedded-postgres-binaries). Note that this is a minimal set of binaries which can be quickly downloaded (around 10MB) for use rather than the official downloads which are pegged at around 100MB.
+By default, this project uses the minimum binaries published by [zonkyio/embedded-postgres-binaries](https://github.com/zonkyio/embedded-postgres-binaries). Note that this is a minimal set of binaries which can be quickly downloaded (around 10MB) for use rather than the official downloads which are pegged at around 100MB. A list of all available versions of postgres binaries is here: https://mvnrepository.com/artifact/io.zonky.test.postgres/embedded-postgres-binaries-bom
 
 Library automatically detects the OS environment and architecture to setup the library for use accordingly.
 
