@@ -1,10 +1,14 @@
 # MysticMind.PostgresEmbed _Postgres embedded database equivalent for .Net applications_ [![Build status](https://ci.appveyor.com/api/projects/status/k72gtg4evxas3dk3?svg=true)](https://ci.appveyor.com/project/BabuAnnamalai/mysticmind-postgresembed) [![NuGet Version](https://badgen.net/nuget/v/mysticmind.postgresembed)](https://www.nuget.org/packages/MysticMind.PostgresEmbed/)
 
-This is a library for running a Postgres server embedded equivalent including extensions targeting Windows x64. This project also handles Postgres extensions very well with a neat way to configure and use it.
+This is a library for running a Postgres server embedded equivalent including extensions targeting Windows, Linux and OSX (including Silicon - M1/M2) available in v3.x. This project also handles Postgres extensions very well with a neat way to configure and use it.
 
-By default, this project uses the binaries published in Nuget package [PostgreSql.Binaries.Lite](https://www.nuget.org/packages/PostgreSql.Binaries.Lite/). Note that this is a minimal set of binaries which can be quickly downloaded (less than 20MB) for use rather than the official downloads which are pegged at around 100MB.
+Note that until v2.x, this library was only supporting Windows.
 
-If you have benefitted from this library and has saved you a bunch of time, please feel free to buy me a coffee!<br>
+By default, this project uses the minimum binaries published by [zonkyio/embedded-postgres-binaries](https://github.com/zonkyio/embedded-postgres-binaries). Note that this is a minimal set of binaries which can be quickly downloaded (around 10MB) for use rather than the official downloads which are pegged at around 100MB.
+
+Library automatically detects the OS environment and architecture to setup the library for use accordingly.
+
+If you have benefitted from this library and has saved you a bunch of time, please feel free to sponsor my work!<br>
 <a href="https://github.com/sponsors/mysticmind" target="_blank"><img height="30" style="border:0px;height:36px;" src="https://img.shields.io/static/v1?label=GitHub Sponsor&message=%E2%9D%A4&logo=GitHub" border="0" alt="GitHub Sponsor" /></a> <!--<a href="https://ko-fi.com/babuannamalai" target="_blank"><img height="36" style="border:0px;height:36px;" src="https://cdn.ko-fi.com/cdn/kofi4.png?v=3" border="0" alt="Buy Me a Coffee at ko-fi.com" /></a> <a href="https://www.buymeacoffee.com/babuannamalai" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="36" width="174"></a>-->
 
 ## Usage
@@ -12,8 +16,8 @@ Install the package from Nuget using `Install-Package MysticMind.PostgresEmbed` 
 
 ### Example of using Postgres binary
 ```csharp
-// using Postgres 9.5.5.1 with a using block
-using (var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1"))
+// using Postgres 15.3.0 with a using block
+using (var server = new MysticMind.PostgresEmbed.PgServer("15.3.0"))
 {
     // start the server
     server.Start();
@@ -36,8 +40,8 @@ using (var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1"))
 
 ### Example of using Postgres binary with StartAsync
 ```csharp
-// using Postgres 9.5.5.1 with a using block
-using (var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1"))
+// using Postgres 15.3.0 with a using block
+using (var server = new MysticMind.PostgresEmbed.PgServer("15.3.0"))
 {
     // start the server
     await server.StartAsync();
@@ -61,37 +65,22 @@ using (var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1"))
 
 ### Example of using Postgres and extensions
 ```csharp
-// Example of using Postgres 9.6.2.1 with extension PostGIS 2.3.2
+// Example of using Postgres 15.3.0 with extension PostGIS 3.3.3
 // you can add multiple create extension sql statements to be run
 var extensions = new List<PgExtensionConfig>();
             
 extensions.Add(new PgExtensionConfig(
-        "http://download.osgeo.org/postgis/windows/pg96/postgis-bundle-pg96-2.3.2x64.zip",
-        new List<string>
-            {
-                "CREATE EXTENSION postgis",
-                "CREATE EXTENSION fuzzystrmatch"
-            }
-    ));
+        "https://download.osgeo.org/postgis/windows/pg15/postgis-bundle-pg15-3.3.3x64.zip"));
 
-using (var server = new MysticMind.PostgresEmbed.PgServer("9.6.2.1", pgExtensions: extensions))
+using (var server = new MysticMind.PostgresEmbed.PgServer("15.3.0", pgExtensions: extensions))
 {
     server.Start();
-}
-```
-
-```csharp
-// Example of using Postgres 9.5.5.1 with extension PLV8
-var extensions = new List<PgExtensionConfig>();
-
-extensions.Add(new PgExtensionConfig(
-    "http://www.postgresonline.com/downloads/pg95plv8jsbin_w64.zip",
-    new List<string> { "CREATE EXTENSION plv8" }
-));
-
-using (var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1", pgExtensions: extensions))
-{
-    server.Start();
+    var connStr = string.Format(ConnStr, server.PgPort, PgUser);
+    var conn = new Npgsql.NpgsqlConnection(connStr);
+    var cmd = new Npgsql.NpgsqlCommand("CREATE EXTENSION postgis;CREATE EXTENSION fuzzystrmatch", conn);
+    conn.Open();
+    cmd.ExecuteNonQuery();
+    conn.Close(); 
 }
 ```
 
@@ -111,7 +100,7 @@ serverParams.Add("synchronous_commit", "off");
 // set max connections
 serverParams.Add("max_connections", "300");
 
-using (var server = new MysticMind.PostgresEmbed.PgServer("9.5.5.1", pgServerParams: serverParams))
+using (var server = new MysticMind.PostgresEmbed.PgServer("15.3.0", pgServerParams: serverParams))
 {
     server.Start();
 
@@ -137,11 +126,16 @@ public class DatabaseServerFixture : IDisposable
             var pgExtensions = new List<PgExtensionConfig>();
             pgExtensions.Add(
                 new PgExtensionConfig(
-                    "http://www.postgresonline.com/downloads/pg96plv8jsbin_w64.zip",
-                    new List<string> { "CREATE EXTENSION plv8" }));
+                    "https://download.osgeo.org/postgis/windows/pg15/postgis-bundle-pg15-3.3.3x64.zip"));
 
-            _pgServer = new PgServer("9.6.2.1", port: 5432, pgExtensions: pgExtensions);
+            _pgServer = new PgServer("15.3.0", port: 5432, pgExtensions: pgExtensions);
             _pgServer.Start();
+            var connStr = string.Format(ConnStr, server.PgPort, PgUser);
+            var conn = new Npgsql.NpgsqlConnection(connStr);
+            var cmd = new Npgsql.NpgsqlCommand("CREATE EXTENSION postgis", conn);
+            conn.Open();
+            cmd.ExecuteNonQuery();
+            conn.Close();
         }
 
         public void Dispose()
@@ -188,12 +182,17 @@ The following steps are done when you run an embedded server:
 - Since each run of embedded server can possibly use a combination of Postgres version and extensions. Hence implemented a concept of an instance containing the extracted Postgres binary, extensions and db data. 
 - Each instance has a instance folder (guid) which contains the `pgsql` and `data` folders. Instance folder is created and removed for each embedded server setup and tear down. 
 - Binary files of Postgres and the extensions are extracted into the instance `pgsql` folder
-- InitDb is run on the `data` folder calling `initdb.exe` in a `Process`
-- Server is started by instantiating a new process on a free port (in the range of 5500 or above) using `pg_ctl.exe`. 
-- System will wait and check (fires a sql query using `psql.exe` at a set  interval) if the server has been started till a defined wait timeout.
+- InitDb is run on the `data` folder calling `initdb` in a `Process`
+- Server is started by instantiating a new process on a free port (in the range of 5500 or above) using `pg_ctl`. 
+- System will wait and check (fires a sql query using `psql` at a set  interval) if the server has been started till a defined wait timeout.
 - Create extensions sql commands configured are run to install the extensions. All sql statements are combined together and run as a single query via a new process and psql.exe
 - After using the server, system will tear down by running a fast stop Process, kill the server process and clear the instance folder.
 - Server  implements `IDisposable` to call Stop automatically within the context of a `using(..){...}` block. If using an unit test setup and teardown at the class level, you will call `Start()` and `Stop()` appropriately.
+
+## Breaking changes in v3.x
+- `PgServer` class constructor signatures have changed.
+- Lib no more uses [PostgreSql.Binaries.Lite](https://github.com/mihasic/PostgreSql.Binaries.Lite)
+- With regards to postgres extensions, end-users will need to run `create extension <extn_name>;` to install the extension. Library will only download and extract the extension based on the url provided.
 
 ## Known Issues
 
@@ -210,11 +209,13 @@ Refer https://github.com/npgsql/npgsql/issues/939 to know details. Resolution is
 
 All processes run from within the embedded server runs under local account. Postgres expects that the parent folder of the data directory has full access permission for the local account.
 
-The fix is to pass a flag `addLocalUserAccessPermission` as `true` and the system will attempt to add full access before the InitDb step as below:
+The fix is to pass a flag `addLocalUserAccessPermission` as `true` and the system will attempt to add full access before the InitDb step as below for the case of Windows:
 
 ```
 icacls.exe c:\pg_embed\aa60c634-fa20-4fa8-b4fc-a43a3b08aa99 /t /grant:r <user>:(OI)(OC)F
 ```
+
+For the case of *nix, all the binaries in bin folder are set to `755` by the library to execute.
 
 ### InitDb failure with a large negative number
 
@@ -226,7 +227,7 @@ Note:
 3. This step was required to be enabled for Appveyor CI builds to succeed.
 
 ## Acknowledgements
-- This project uses the Postgres binaries published via [PostgreSql.Binaries.Lite](https://github.com/mihasic/PostgreSql.Binaries.Lite).
+- This project uses the minimal Postgres binaries published via [zonkyio/embedded-postgres-binaries](https://github.com/zonkyio/embedded-postgres-binaries).
 
 - Looked at projects [Yandex Embedded PostgresSQL](https://github.com/yandex-qatools/postgresql-embedded) and [OpenTable Embedded PostgreSQL Component](https://github.com/opentable/otj-pg-embedded) while brainstorming the implementation.
 
@@ -235,6 +236,6 @@ Note that the above projects had only dealt with Postgres binary and none had op
 ## License
 MysticMind.PostgresEmbed is licensed under [MIT License](http://www.opensource.org/licenses/mit-license.php). Refer to [License file](https://github.com/mysticmind/mysticmind-postgresembed/blob/master/LICENSE) for more information.
 
-Copyright © 2017 Babu Annamalai
+Copyright © 2023 Babu Annamalai
 
 
