@@ -43,7 +43,6 @@ namespace MysticMind.PostgresEmbed
 
         private readonly Policy _downloadRetryPolicy;
         private readonly Policy _deleteFoldersRetryPolicy;
-        private readonly string _nugetPackage;
 
         public PgServer(
             string pgVersion,
@@ -455,7 +454,7 @@ namespace MysticMind.PostgresEmbed
                 DownloadPgBinary();
 
                 // if the file already exists, download will be skipped
-                // DownloadPgExtensions();
+                DownloadPgExtensions();
 
                 ExtractPgBinary();
                 ExtractPgExtensions();
