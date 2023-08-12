@@ -4,7 +4,7 @@ public enum Platform
 {
     Windows,
     Linux,
-    AlpineLinux,
-    AlpineLiteLinux,
-    Darwin
+    Darwin,
+    // AlpineLinux,
+    // AlpineLiteLinux
 }

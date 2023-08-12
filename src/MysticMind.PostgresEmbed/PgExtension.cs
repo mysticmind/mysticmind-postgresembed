@@ -72,42 +72,6 @@ namespace MysticMind.PostgresEmbed
             Utils.ExtractZipFolder(zipFile, _pgDir, containerFolderInBinary, ignoreRootFolder);
         }
 
-        // public void CreateExtension()
-        // {
-        //     // create a single sql command with semicolon separators
-        //     var sql = string.Join(";", _config.CreateExtensionSqlList);
-        //
-        //     var args = new List<string>
-        //     {
-        //         // add host
-        //         $"-h {_pgHost}",
-        //         // add port
-        //         $"-p {_pgPort}",
-        //         // add user
-        //         $"-U {_pgUser}",
-        //         // add database name
-        //         $"-d {this._pgDbName}",
-        //         // add command
-        //         $"-c \"{sql}\""
-        //     };
-        //
-        //     var filename = Path.Combine(_pgDir, "bin", PsqlExe);
-        //
-        //     try
-        //     {
-        //         var result = Utils.RunProcess(filename, args);
-        //
-        //         if (result.ExitCode != 0)
-        //         {
-        //             throw new Exception($"'{sql}' execution returned an error code {result.ExitCode} {result.Output} {result.Error}");
-        //         }
-        //     }
-        //     catch (Exception ex)
-        //     {
-        //         throw new Exception($"Exception occurred while executing '{sql}'", ex);
-        //     }
-        // }
-
         private string GetContainerFolderInBinary(string zipFile)
         {
             //some of the extension binaries may have a root folder which need to be ignored while extracting content
