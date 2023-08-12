@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Xunit;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
 namespace MysticMind.PostgresEmbed.Tests
@@ -11,14 +12,15 @@ namespace MysticMind.PostgresEmbed.Tests
         private const string PgUser = "postgres";
         private const string ConnStr = "Server=localhost;Port={0};User Id={1};Password=test;Database=postgres;Pooling=false";
 
-        // this required for the appveyor CI build to set full access for appveyor user on instance folder
+        // this required for the appveyor CI build to set full access for appveyor user on instance folder on Windows
         private const bool AddLocalUserAccessPermission = false;
 
         [Fact]
         public void create_server_and_table_test()
         {
             using var server = new PgServer(
-                "9.5.5.1", 
+                
+                "15.3.0", 
                 PgUser, 
                 addLocalUserAccessPermission: AddLocalUserAccessPermission,
                 clearInstanceDirOnStop:true);
@@ -54,7 +56,7 @@ namespace MysticMind.PostgresEmbed.Tests
             };
 
             using var server = new PgServer(
-                "9.5.5.1", 
+                "15.3.0", 
                 PgUser, 
                 pgServerParams: serverParams, 
                 addLocalUserAccessPermission: AddLocalUserAccessPermission,
@@ -79,7 +81,7 @@ namespace MysticMind.PostgresEmbed.Tests
         public void create_server_without_using_block()
         {
             var server = new PgServer(
-                "9.5.5.1", 
+                "15.3.0", 
                 PgUser,
                 addLocalUserAccessPermission: AddLocalUserAccessPermission,
                 clearInstanceDirOnStop: true);
@@ -104,56 +106,41 @@ namespace MysticMind.PostgresEmbed.Tests
             }
         }
 
-        [Fact]
-        public void create_server_with_plv8_extension_test()
-        {
-            var extensions = new List<PgExtensionConfig>
-            {
-                // plv8 extension
-                new (
-                    "https://www.postgresonline.com/downloads/pg95plv8jsbin_w64.zip",
-                    new List<string> { "CREATE EXTENSION plv8" }
-                )
-            };
-
-            using var server = new PgServer(
-                "9.5.5.1", 
-                PgUser, 
-                pgExtensions: extensions,
-                addLocalUserAccessPermission: AddLocalUserAccessPermission,
-                clearInstanceDirOnStop: true);
-            server.Start();
-        }
-
-        [Fact]
+        [SkippableFact]
         public void create_server_with_postgis_extension_test()
         {
+            Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "Test supported only on Windows");
             var extensions = new List<PgExtensionConfig>
             {
                 new PgExtensionConfig(
-                    "https://download.osgeo.org/postgis/windows/pg96/archive/postgis-bundle-pg96-2.5.1x64.zip",
-                    new List<string>
-                    {
-                        "CREATE EXTENSION postgis",
-                        "CREATE EXTENSION fuzzystrmatch"
-                    }
+                    "https://download.osgeo.org/postgis/windows/pg15/postgis-bundle-pg15-3.3.3x64.zip"
                 )
             };
-
+        
             using var server = new PgServer(
-                "9.6.2.1", 
+                "15.3.0", 
                 PgUser, 
                 pgExtensions: extensions,
                 addLocalUserAccessPermission: AddLocalUserAccessPermission,
                 clearInstanceDirOnStop: true);
             server.Start();
+            var connStr = string.Format(ConnStr, server.PgPort, PgUser);
+            var conn = new Npgsql.NpgsqlConnection(connStr);
+            var cmd =
+                new Npgsql.NpgsqlCommand(
+                    "CREATE EXTENSION postgis;CREATE EXTENSION fuzzystrmatch",
+                    conn);
+
+            conn.Open();
+            cmd.ExecuteNonQuery();
+            conn.Close();
         }
 
         [Fact]
         public void create_server_with_user_defined_instance_id_and_table_test()
         {
             using var server = new PgServer(
-                "9.5.5.1",
+                "15.3.0",
                 PgUser,
                 addLocalUserAccessPermission: AddLocalUserAccessPermission,
                 instanceId: Guid.NewGuid(),
@@ -183,7 +170,7 @@ namespace MysticMind.PostgresEmbed.Tests
             var instanceId = Guid.NewGuid();
 
             using (var server = new PgServer(
-                "9.5.5.1",
+                "15.3.0",
                 PgUser,
                 addLocalUserAccessPermission: AddLocalUserAccessPermission,
                 instanceId: instanceId))
@@ -208,7 +195,7 @@ namespace MysticMind.PostgresEmbed.Tests
             }
 
             using (var server = new PgServer(
-                "9.5.5.1",
+                "15.3.0",
                 PgUser,
                 addLocalUserAccessPermission: AddLocalUserAccessPermission,
                 instanceId: instanceId,
@@ -225,7 +212,7 @@ namespace MysticMind.PostgresEmbed.Tests
         public void create_server_without_version_suffix()
         {
             using var server = new PgServer(
-                "10.5.1",
+                "15.3.0",
                 PgUser,
                 addLocalUserAccessPermission: AddLocalUserAccessPermission,
                 clearInstanceDirOnStop: true);
@@ -249,7 +236,7 @@ namespace MysticMind.PostgresEmbed.Tests
         public async Task create_server_async_and_table_test()
         {
             using var server = new PgServer(
-                "9.5.5.1",
+                "15.3.0",
                 PgUser,
                 addLocalUserAccessPermission: AddLocalUserAccessPermission,
                 clearInstanceDirOnStop:true);
@@ -273,7 +260,7 @@ namespace MysticMind.PostgresEmbed.Tests
         public async Task create_server_async_without_using_block()
         {
             var server = new PgServer(
-                "9.5.5.1", 
+                "15.3.0", 
                 PgUser,
                 addLocalUserAccessPermission: AddLocalUserAccessPermission,
                 clearInstanceDirOnStop: true);
@@ -298,27 +285,34 @@ namespace MysticMind.PostgresEmbed.Tests
             }
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task Bug_19_authors_md_file_already_exists()
         {
+            Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "Test supported only on Windows");
             var extensions = new List<PgExtensionConfig>
             {
                 new(
-                    "https://download.osgeo.org/postgis/windows/pg96/postgis-bundle-pg96-3.2.3x64.zip",
-                    new List<string>
-                    {
-                        "CREATE EXTENSION postgis"
-                    }
+                    "https://download.osgeo.org/postgis/windows/pg15/postgis-bundle-pg15-3.3.3x64.zip"
                 )
             };
-
+        
             using var server = new PgServer(
-                "9.6.2.1",
+                "15.3.0",
                 PgUser,
                 pgExtensions: extensions,
                 addLocalUserAccessPermission: AddLocalUserAccessPermission,
                 clearInstanceDirOnStop: true);
             await server.StartAsync();
+            var connStr = string.Format(ConnStr, server.PgPort, PgUser);
+            var conn = new Npgsql.NpgsqlConnection(connStr);
+            var cmd =
+                new Npgsql.NpgsqlCommand(
+                    "CREATE EXTENSION postgis",
+                    conn);
+
+            await conn.OpenAsync();
+            await cmd.ExecuteNonQueryAsync();
+            await conn.CloseAsync();
         }
     }
 }

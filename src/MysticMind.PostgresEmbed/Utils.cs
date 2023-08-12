@@ -9,6 +9,9 @@ using System.Net.NetworkInformation;
 using System.IO.Compression;
 using System.Text;
 using System.Diagnostics;
+using SharpCompress.Common;
+using SharpCompress.Readers;
+using System.Runtime.InteropServices;
 
 namespace MysticMind.PostgresEmbed
 {
@@ -59,9 +62,48 @@ namespace MysticMind.PostgresEmbed
             while (isMoreToRead);
         }
 
+        // public static void ExtractZip(string zipFile, string destDir, string extractPath="", bool ignoreRootDir=false)
+        // {
+        //     ZipFile.ExtractToDirectory(zipFile, destDir, overwriteFiles: true);
+        // }
+        
         public static void ExtractZip(string zipFile, string destDir, string extractPath="", bool ignoreRootDir=false)
         {
-            ZipFile.ExtractToDirectory(zipFile, destDir, overwriteFiles: true);
+            using Stream stream = File.OpenRead(zipFile);
+            using var reader = ReaderFactory.Open(stream);
+            var isWindows = Utils.IsWindows();
+
+            var opts = new ExtractionOptions()
+            {
+                ExtractFullPath = true,
+                Overwrite = true,
+                WriteSymbolicLink = (srcPath, targetPath) =>
+                {
+                    if (isWindows) return;
+                    var targetDirectory = Path.GetDirectoryName(srcPath);
+                    var targetFullPath = Path.Combine(targetDirectory, targetPath);
+                    if (File.Exists(targetFullPath))
+                    {
+                        File.Copy(targetFullPath, srcPath);
+                    }
+                }
+            };
+            
+            while (reader.MoveToNextEntry())
+            {
+                if (reader.Entry.IsDirectory) continue;
+                // Specify the extraction path for the entry
+                var extractionPath = Path.Combine(destDir, reader.Entry.Key);
+
+                // Ensure that the target directory exists
+                var targetDirectory = Path.GetDirectoryName(extractionPath);
+                if (!Directory.Exists(targetDirectory))
+                {
+                    Directory.CreateDirectory(targetDirectory!);    
+                }
+
+                reader.WriteEntryToFile(extractionPath, opts);
+            }
         }
 
         public static void ExtractZipFolder(string zipFile, string destDir, string extractPath = "", bool ignoreRootDir = false)
@@ -168,6 +210,45 @@ namespace MysticMind.PostgresEmbed
             var error = errorBuilder.ToString();
 
             return new ProcessResult { ExitCode = p.ExitCode, Output = output, Error = error };
+        }
+
+        public static bool IsWindows()
+        {
+            return RuntimeInformation.IsOSPlatform(
+                OSPlatform.Windows
+            );
+        }
+
+        public static Platform? GetPlatform()
+        {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                return Platform.Windows;
+            }
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                return Platform.Linux;
+            }
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                return Platform.Darwin;
+            }
+
+            return null;
+        }
+
+        public static Architecture GetArchitecture(Platform platform)
+        {
+            if (platform is not Platform.Darwin) return Architecture.Amd64;
+            
+            var processResult = Utils.RunProcess("sysctl", new List<string>
+            {
+                "machdep.cpu.brand_string"
+            });
+
+            return processResult.Output.Contains("Apple M") ? Architecture.Arm64V8 : Architecture.Amd64;
         }
     }
 }

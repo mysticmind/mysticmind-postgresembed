@@ -3,6 +3,7 @@ using System.IO;
 using System.Diagnostics;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Polly;
@@ -12,24 +13,17 @@ namespace MysticMind.PostgresEmbed
     public class PgServer : IDisposable
     {
         private const string PgSuperuser = "postgres";
-
         private const string PgHost = "localhost";
-
         private const string PgDbname = "postgres";
-
         private const string PgStopWaitS = "5";
-
         private const int PgStartupWaitMs = 10 * 1000;
-
         private const string PgStopMode = "fast";
 
-        private const string PgCtlExe = "pg_ctl.exe";
-
-        private const string InitDbExe = "initdb.exe";
-
-        private const string PsqlExe = "psql.exe";
-
         private string _pgBinaryFullPath;
+
+        private readonly string _pgCtlBin;
+        private readonly string _initDbBin;
+        private readonly string _postgresBin;
 
         private readonly bool _clearInstanceDirOnStop;
 
@@ -37,15 +31,17 @@ namespace MysticMind.PostgresEmbed
 
         private Process _pgServerProcess;
 
-        private readonly List<string> _pgServerParams = new List<string>();
+        private readonly List<string> _pgServerParams = new();
 
-        private readonly List<PgExtensionConfig> _pgExtensions = new List<PgExtensionConfig>();
+        private readonly List<PgExtensionConfig> _pgExtensions = new();
 
         private readonly bool _addLocalUserAccessPermission;
 
         private readonly Policy _downloadRetryPolicy;
         private readonly Policy _deleteFoldersRetryPolicy;
-        private readonly string _nugetPackage;
+        
+        private readonly Platform _platform;
+        private readonly Architecture _architecture;
 
         public PgServer(
             string pgVersion,
@@ -61,10 +57,32 @@ namespace MysticMind.PostgresEmbed
             int deleteFolderRetryCount =5, 
             int deleteFolderInitialTimeout =16, 
             int deleteFolderTimeoutFactor =2,
-            string locale = null,
-            string nugetPackage = null)
+            string locale = "",
+            Platform? platform = null)
         {
+            
+            _pgCtlBin = "pg_ctl";
+            _initDbBin = "initdb";
+            _postgresBin = "postgres";
             PgVersion = pgVersion;
+
+            if (platform.HasValue)
+            {
+                _platform = platform.Value;    
+            }
+            else
+            {
+                platform = Utils.GetPlatform();
+            }
+
+            if (platform == null)
+            {
+                throw new UnsupportedPlatformException();
+            }
+
+            _platform = platform.Value;
+            
+            _architecture = Utils.GetArchitecture(_platform);
 
             PgUser = String.IsNullOrEmpty(pgUser) ? PgSuperuser : pgUser;
 
@@ -94,11 +112,8 @@ namespace MysticMind.PostgresEmbed
 
             BinariesDir = Path.Combine(DbDir, "binaries");
             InstanceDir = Path.Combine(DbDir, instanceId.ToString());
-            PgDir = Path.Combine(InstanceDir, "pgsql");
-            PgBinDir = Path.Combine(PgDir, "bin");
+            PgBinDir = Path.Combine(InstanceDir, "bin");
             DataDir = Path.Combine(InstanceDir, "data");
-
-            _nugetPackage = nugetPackage;
 
             // setup the policy for retry pertaining to downloading binary
             _downloadRetryPolicy =
@@ -113,6 +128,11 @@ namespace MysticMind.PostgresEmbed
             {
                 Locale = locale;
             }
+
+            if (_platform != Platform.Windows && string.IsNullOrEmpty(Locale))
+            {
+                Locale = "en_US.UTF-8";
+            }
         }
 
         public string PgVersion { get; private set; }
@@ -124,8 +144,6 @@ namespace MysticMind.PostgresEmbed
         public string BinariesDir { get; private set; }
 
         public string InstanceDir { get; private set; }
-
-        public string PgDir { get; private set; }
 
         public string PgBinDir { get; private set; }
 
@@ -139,7 +157,7 @@ namespace MysticMind.PostgresEmbed
 
         private void DownloadPgBinary()
         {
-            var downloader = new PgBinariesLiteBinaryDownloader(PgVersion, BinariesDir, _nugetPackage);
+            var downloader = new DefaultPostgresBinaryDownloader(PgVersion, BinariesDir, _platform, _architecture);
 
             try
             {
@@ -153,7 +171,7 @@ namespace MysticMind.PostgresEmbed
 
         private void DownloadPgExtensions()
         {
-            foreach (var pgExtensionInstance in _pgExtensions.Select(extensionConfig => new PgExtension(PgVersion, PgHost, PgPort, PgUser, PgDbName, BinariesDir, PgDir, extensionConfig)))
+            foreach (var pgExtensionInstance in _pgExtensions.Select(extensionConfig => new PgExtension(BinariesDir, InstanceDir, extensionConfig)))
             {
                 _downloadRetryPolicy.Execute(() => pgExtensionInstance.Download());
             }
@@ -163,7 +181,6 @@ namespace MysticMind.PostgresEmbed
         {
             Directory.CreateDirectory(DbDir);
             Directory.CreateDirectory(BinariesDir);
-            Directory.CreateDirectory(PgDir);
         }
 
         private void RemoveWorkingDir() => DeleteDirectory(DbDir);
@@ -211,7 +228,7 @@ namespace MysticMind.PostgresEmbed
         {
             foreach (var extensionConfig in _pgExtensions)
             {
-                var pgExtensionInstance = new PgExtension(PgVersion, PgHost, PgPort, PgUser, PgDbName, BinariesDir, PgDir, extensionConfig);
+                var pgExtensionInstance = new PgExtension(BinariesDir, InstanceDir, extensionConfig);
                 _downloadRetryPolicy.Execute(() => pgExtensionInstance.Extract());
             }
         }
@@ -222,6 +239,11 @@ namespace MysticMind.PostgresEmbed
         // Also note that the local account should have admin rights to change folder permissions
         private void AddLocalUserAccessPermission()
         {
+            if (_platform != Platform.Windows)
+            {
+                return;
+            }
+
             var filename = "icacls.exe";
             var args = new List<string>();
 
@@ -248,9 +270,32 @@ namespace MysticMind.PostgresEmbed
             }
         }
 
+        private void SetBinariesAsExecutable()
+        {
+            if (_platform == Platform.Windows)
+            {
+                return;    
+            }
+            
+            var username = Environment.UserName;
+
+            Utils.RunProcess("/bin/chmod",  new List<string>
+            {
+                $"+x {Path.Combine(PgBinDir, _initDbBin)}"
+            });
+            Utils.RunProcess("/bin/chmod",  new List<string>
+            {
+                $"+x {Path.Combine(PgBinDir, _pgCtlBin)}"
+            });
+            Utils.RunProcess("/bin/chmod",  new List<string>
+            {
+                $"+x {Path.Combine(PgBinDir, _postgresBin)}"
+            });
+        }
+
         private void InitDb()
         {
-            var filename = Path.Combine(PgBinDir, InitDbExe);
+            var filename = Path.Combine(PgBinDir, _initDbBin);
             var args = new List<string>
             {
                 // add data dir
@@ -282,41 +327,44 @@ namespace MysticMind.PostgresEmbed
             }
         }
 
-        private void CreateExtensions()
-        {
-            foreach (var extensionConfig in _pgExtensions)
-            {
-                var pgExtensionInstance = new PgExtension(PgVersion, PgHost, PgPort, PgUser, PgDbName, BinariesDir, PgDir, extensionConfig);
-                _downloadRetryPolicy.Execute(() => pgExtensionInstance.CreateExtension());
-            }
-        }
-
         private bool VerifyReady()
         {
-            var filename = Path.Combine(PgBinDir, PsqlExe);
-
-            var args = new List<string>
+            // var filename = Path.Combine(PgBinDir, PsqlExe);
+            //
+            // var args = new List<string>
+            // {
+            //     // add host
+            //     $"-h {PgHost}",
+            //     //add port
+            //     $"-p {PgPort}",
+            //     //add  user
+            //     $"-U {PgUser}",
+            //     // add database name
+            //     $"-d {PgDbName}",
+            //     // add command
+            //     $"-c \"SELECT 1 as test\""
+            // };
+            //
+            // var result = Utils.RunProcess(filename, args);
+            //
+            // return result.ExitCode == 0;
+            using var tcpClient = new TcpClient();
+            try
             {
-                // add host
-                $"-h {PgHost}",
-                //add port
-                $"-p {PgPort}",
-                //add  user
-                $"-U {PgUser}",
-                // add database name
-                $"-d {PgDbName}",
-                // add command
-                $"-c \"SELECT 1 as test\""
-            };
+                tcpClient.Connect(PgHost, PgPort);
+                return true;
+            }
+            catch (Exception)
+            {
+                // intentionally left unhandled
+            }
 
-            var result = Utils.RunProcess(filename, args);
-
-            return result.ExitCode == 0;
+            return false;
         }
 
         private void StartServer()
         {
-            var filename = Path.Combine(PgBinDir, PgCtlExe);
+            var filename = Path.Combine(PgBinDir, _pgCtlBin);
 
             var args = new List<string>
             {
@@ -392,7 +440,7 @@ namespace MysticMind.PostgresEmbed
 
         private void StopServer()
         {
-            var filename = Path.Combine(PgBinDir, PgCtlExe);
+            var filename = Path.Combine(PgBinDir, _pgCtlBin);
 
             var args = new List<string>
             {
@@ -456,10 +504,9 @@ namespace MysticMind.PostgresEmbed
                     AddLocalUserAccessPermission();
                 }
 
+                SetBinariesAsExecutable();
                 InitDb();
                 StartServer();
-
-                CreateExtensions();
             } 
             else
             {
