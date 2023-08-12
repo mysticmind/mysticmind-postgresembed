@@ -113,7 +113,7 @@ namespace MysticMind.PostgresEmbed.Tests
             var extensions = new List<PgExtensionConfig>
             {
                 new PgExtensionConfig(
-                    "https://download.osgeo.org/postgis/windows/pg15/archive/postgis-bundle-pg15-3.3.3x64.zip"
+                    "https://download.osgeo.org/postgis/windows/pg15/postgis-bundle-pg15-3.3.3x64.zip"
                 )
             };
         
@@ -292,7 +292,7 @@ namespace MysticMind.PostgresEmbed.Tests
             var extensions = new List<PgExtensionConfig>
             {
                 new(
-                    "https://download.osgeo.org/postgis/windows/pg15/archive/postgis-bundle-pg15-3.3.3x64.zip"
+                    "https://download.osgeo.org/postgis/windows/pg15/postgis-bundle-pg15-3.3.3x64.zip"
                 )
             };
         

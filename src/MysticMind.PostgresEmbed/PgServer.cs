@@ -57,7 +57,7 @@ namespace MysticMind.PostgresEmbed
             int deleteFolderRetryCount =5, 
             int deleteFolderInitialTimeout =16, 
             int deleteFolderTimeoutFactor =2,
-            string locale = "en_US",
+            string locale = "",
             Platform? platform = null)
         {
             
@@ -127,6 +127,11 @@ namespace MysticMind.PostgresEmbed
             if (!string.IsNullOrEmpty(locale))
             {
                 Locale = locale;
+            }
+
+            if (_platform != Platform.Windows && string.IsNullOrEmpty(Locale))
+            {
+                Locale = "en_US.UTF-8";
             }
         }
 
