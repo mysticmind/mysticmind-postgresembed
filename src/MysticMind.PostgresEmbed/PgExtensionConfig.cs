@@ -6,21 +6,14 @@ namespace MysticMind.PostgresEmbed
 {
     public class PgExtensionConfig
     {
-        public PgExtensionConfig(string downloadUrl, IReadOnlyCollection<string> createExtensionSqlList)
+        public PgExtensionConfig(string downloadUrl)
         {
             if (string.IsNullOrEmpty(downloadUrl))
             {
                 throw new ArgumentException("downloadUrl is required");
             }
 
-            if ((createExtensionSqlList == null) | (createExtensionSqlList != null && !createExtensionSqlList.Any()))
-            {
-                throw new ArgumentException("At least one create extension statement should be present");
-            }
-
             DownloadUrl = downloadUrl;
-
-            CreateExtensionSqlList.AddRange(createExtensionSqlList);
         }
         
         public string DownloadUrl { get; private set; }

@@ -9,7 +9,6 @@ namespace MysticMind.PostgresEmbed;
 
 internal class DefaultPostgresBinaryDownloader
 {
-    // https://repo1.maven.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-darwin-amd64/15.2.0/embedded-postgres-binaries-darwin-amd64-15.2.0.jar
     private readonly string _pgVersion;
     private readonly Platform _platform;
     private readonly Architecture? _architecture;

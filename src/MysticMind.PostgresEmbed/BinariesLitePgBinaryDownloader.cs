@@ -15,6 +15,7 @@ using NuGet.Common;
 
 namespace MysticMind.PostgresEmbed
 {
+    [Obsolete("Not used anymore", true)]
     internal class PgBinariesLiteBinaryDownloader
     {
         private const string FileName = "postgresql-{0}-windows-x64-binaries-lite.zip";

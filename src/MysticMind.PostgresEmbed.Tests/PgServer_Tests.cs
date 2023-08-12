@@ -105,41 +105,15 @@ namespace MysticMind.PostgresEmbed.Tests
         }
 
         [Fact]
-        public void create_server_with_plv8_extension_test()
-        {
-            var extensions = new List<PgExtensionConfig>
-            {
-                // plv8 extension
-                new (
-                    "https://www.postgresonline.com/downloads/pg95plv8jsbin_w64.zip",
-                    new List<string> { "CREATE EXTENSION plv8" }
-                )
-            };
-
-            using var server = new PgServer(
-                "9.6.9", 
-                PgUser, 
-                pgExtensions: extensions,
-                addLocalUserAccessPermission: AddLocalUserAccessPermission,
-                clearInstanceDirOnStop: true);
-            server.Start();
-        }
-
-        [Fact]
         public void create_server_with_postgis_extension_test()
         {
             var extensions = new List<PgExtensionConfig>
             {
                 new PgExtensionConfig(
-                    "https://download.osgeo.org/postgis/windows/pg96/archive/postgis-bundle-pg96-2.5.1x64.zip",
-                    new List<string>
-                    {
-                        "CREATE EXTENSION postgis",
-                        "CREATE EXTENSION fuzzystrmatch"
-                    }
+                    "https://download.osgeo.org/postgis/windows/pg96/archive/postgis-bundle-pg96-2.5.1x64.zip"
                 )
             };
-
+        
             using var server = new PgServer(
                 "9.6.9", 
                 PgUser, 
@@ -147,6 +121,16 @@ namespace MysticMind.PostgresEmbed.Tests
                 addLocalUserAccessPermission: AddLocalUserAccessPermission,
                 clearInstanceDirOnStop: true);
             server.Start();
+            var connStr = string.Format(ConnStr, server.PgPort, PgUser);
+            var conn = new Npgsql.NpgsqlConnection(connStr);
+            var cmd =
+                new Npgsql.NpgsqlCommand(
+                    "CREATE EXTENSION postgis;CREATE EXTENSION fuzzystrmatch",
+                    conn);
+
+            conn.Open();
+            cmd.ExecuteNonQuery();
+            conn.Close();
         }
 
         [Fact]
@@ -304,14 +288,10 @@ namespace MysticMind.PostgresEmbed.Tests
             var extensions = new List<PgExtensionConfig>
             {
                 new(
-                    "https://download.osgeo.org/postgis/windows/pg96/postgis-bundle-pg96-3.2.3x64.zip",
-                    new List<string>
-                    {
-                        "CREATE EXTENSION postgis"
-                    }
+                    "https://download.osgeo.org/postgis/windows/pg96/postgis-bundle-pg96-3.2.3x64.zip"
                 )
             };
-
+        
             using var server = new PgServer(
                 "9.6.9",
                 PgUser,
@@ -319,6 +299,16 @@ namespace MysticMind.PostgresEmbed.Tests
                 addLocalUserAccessPermission: AddLocalUserAccessPermission,
                 clearInstanceDirOnStop: true);
             await server.StartAsync();
+            var connStr = string.Format(ConnStr, server.PgPort, PgUser);
+            var conn = new Npgsql.NpgsqlConnection(connStr);
+            var cmd =
+                new Npgsql.NpgsqlCommand(
+                    "CREATE EXTENSION postgis",
+                    conn);
+
+            await conn.OpenAsync();
+            await cmd.ExecuteNonQueryAsync();
+            await conn.CloseAsync();
         }
     }
 }

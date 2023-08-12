@@ -10,18 +10,6 @@ namespace MysticMind.PostgresEmbed
 
     internal class PgExtension
     {
-        private const string PsqlExe = "psql.exe";
-
-        private readonly string _pgVersion;
-
-        private readonly string _pgHost;
-
-        private readonly int _pgPort;
-
-        private readonly string _pgUser;
-
-        private readonly string _pgDbName;
-
         private readonly string _binariesDir;
 
         private readonly string _pgDir;
@@ -31,21 +19,10 @@ namespace MysticMind.PostgresEmbed
         private readonly string _filename;
 
         public PgExtension(
-            string pgVersion,
-            string pgHost,
-            int pgPort,
-            string pgUser,
-            string pgDbName,
             string binariesDir,
             string pgDir,
             PgExtensionConfig config)
         {
-            _pgVersion = pgVersion;
-            _pgHost = pgHost;
-            _pgPort = pgPort;
-            _pgUser = pgUser;
-            _pgDbName = pgDbName;
-
             _binariesDir = binariesDir;
             _pgDir = pgDir;
             _config = config;
@@ -95,41 +72,41 @@ namespace MysticMind.PostgresEmbed
             Utils.ExtractZipFolder(zipFile, _pgDir, containerFolderInBinary, ignoreRootFolder);
         }
 
-        public void CreateExtension()
-        {
-            // create a single sql command with semicolon separators
-            var sql = string.Join(";", _config.CreateExtensionSqlList);
-
-            var args = new List<string>
-            {
-                // add host
-                $"-h {_pgHost}",
-                // add port
-                $"-p {_pgPort}",
-                // add user
-                $"-U {_pgUser}",
-                // add database name
-                $"-d {this._pgDbName}",
-                // add command
-                $"-c \"{sql}\""
-            };
-
-            var filename = Path.Combine(_pgDir, "bin", PsqlExe);
-
-            try
-            {
-                var result = Utils.RunProcess(filename, args);
-
-                if (result.ExitCode != 0)
-                {
-                    throw new Exception($"'{sql}' execution returned an error code {result.ExitCode} {result.Output} {result.Error}");
-                }
-            }
-            catch (Exception ex)
-            {
-                throw new Exception($"Exception occurred while executing '{sql}'", ex);
-            }
-        }
+        // public void CreateExtension()
+        // {
+        //     // create a single sql command with semicolon separators
+        //     var sql = string.Join(";", _config.CreateExtensionSqlList);
+        //
+        //     var args = new List<string>
+        //     {
+        //         // add host
+        //         $"-h {_pgHost}",
+        //         // add port
+        //         $"-p {_pgPort}",
+        //         // add user
+        //         $"-U {_pgUser}",
+        //         // add database name
+        //         $"-d {this._pgDbName}",
+        //         // add command
+        //         $"-c \"{sql}\""
+        //     };
+        //
+        //     var filename = Path.Combine(_pgDir, "bin", PsqlExe);
+        //
+        //     try
+        //     {
+        //         var result = Utils.RunProcess(filename, args);
+        //
+        //         if (result.ExitCode != 0)
+        //         {
+        //             throw new Exception($"'{sql}' execution returned an error code {result.ExitCode} {result.Output} {result.Error}");
+        //         }
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         throw new Exception($"Exception occurred while executing '{sql}'", ex);
+        //     }
+        // }
 
         private string GetContainerFolderInBinary(string zipFile)
         {

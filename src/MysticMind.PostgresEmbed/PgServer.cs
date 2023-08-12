@@ -3,6 +3,7 @@ using System.IO;
 using System.Diagnostics;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Polly;
@@ -23,13 +24,10 @@ namespace MysticMind.PostgresEmbed
 
         private const string PgStopMode = "fast";
 
-        private const string PgCtlExe = "pg_ctl.exe";
-
-        private const string InitDbExe = "initdb.exe";
-
-        private const string PsqlExe = "postgres.exe";
-
         private string _pgBinaryFullPath;
+        
+        private readonly string _pgCtlBin;
+        private readonly string _initDbBin;
 
         private readonly bool _clearInstanceDirOnStop;
 
@@ -61,11 +59,13 @@ namespace MysticMind.PostgresEmbed
             int deleteFolderRetryCount =5, 
             int deleteFolderInitialTimeout =16, 
             int deleteFolderTimeoutFactor =2,
-            string locale = null,
-            string nugetPackage = null)
+            string locale = null)
         {
+            // _pgCtlBin = "pg_ctl.exe";
+            // _initDbBin = "initdb.exe";
+            _pgCtlBin = "pg_ctl";
+            _initDbBin = "initdb";
             PgVersion = pgVersion;
-
             PgUser = String.IsNullOrEmpty(pgUser) ? PgSuperuser : pgUser;
 
             DbDir = Path.Combine(string.IsNullOrEmpty(dbDir) ? "." : dbDir, "pg_embed");
@@ -97,8 +97,6 @@ namespace MysticMind.PostgresEmbed
             PgDir = Path.Combine(InstanceDir, "pgsql");
             PgBinDir = Path.Combine(PgDir, "bin");
             DataDir = Path.Combine(InstanceDir, "data");
-
-            _nugetPackage = nugetPackage;
 
             // setup the policy for retry pertaining to downloading binary
             _downloadRetryPolicy =
@@ -153,7 +151,7 @@ namespace MysticMind.PostgresEmbed
 
         private void DownloadPgExtensions()
         {
-            foreach (var pgExtensionInstance in _pgExtensions.Select(extensionConfig => new PgExtension(PgVersion, PgHost, PgPort, PgUser, PgDbName, BinariesDir, PgDir, extensionConfig)))
+            foreach (var pgExtensionInstance in _pgExtensions.Select(extensionConfig => new PgExtension(BinariesDir, PgDir, extensionConfig)))
             {
                 _downloadRetryPolicy.Execute(() => pgExtensionInstance.Download());
             }
@@ -219,7 +217,7 @@ namespace MysticMind.PostgresEmbed
         {
             foreach (var extensionConfig in _pgExtensions)
             {
-                var pgExtensionInstance = new PgExtension(PgVersion, PgHost, PgPort, PgUser, PgDbName, BinariesDir, PgDir, extensionConfig);
+                var pgExtensionInstance = new PgExtension(BinariesDir, PgDir, extensionConfig);
                 _downloadRetryPolicy.Execute(() => pgExtensionInstance.Extract());
             }
         }
@@ -258,7 +256,7 @@ namespace MysticMind.PostgresEmbed
 
         private void InitDb()
         {
-            var filename = Path.Combine(PgBinDir, InitDbExe);
+            var filename = Path.Combine(PgBinDir, _initDbBin);
             var args = new List<string>
             {
                 // add data dir
@@ -290,41 +288,44 @@ namespace MysticMind.PostgresEmbed
             }
         }
 
-        private void CreateExtensions()
-        {
-            foreach (var extensionConfig in _pgExtensions)
-            {
-                var pgExtensionInstance = new PgExtension(PgVersion, PgHost, PgPort, PgUser, PgDbName, BinariesDir, PgDir, extensionConfig);
-                _downloadRetryPolicy.Execute(() => pgExtensionInstance.CreateExtension());
-            }
-        }
-
         private bool VerifyReady()
         {
-            var filename = Path.Combine(PgBinDir, PsqlExe);
-
-            var args = new List<string>
+            // var filename = Path.Combine(PgBinDir, PsqlExe);
+            //
+            // var args = new List<string>
+            // {
+            //     // add host
+            //     $"-h {PgHost}",
+            //     //add port
+            //     $"-p {PgPort}",
+            //     //add  user
+            //     $"-U {PgUser}",
+            //     // add database name
+            //     $"-d {PgDbName}",
+            //     // add command
+            //     $"-c \"SELECT 1 as test\""
+            // };
+            //
+            // var result = Utils.RunProcess(filename, args);
+            //
+            // return result.ExitCode == 0;
+            using var tcpClient = new TcpClient();
+            try
             {
-                // add host
-                $"-h {PgHost}",
-                //add port
-                $"-p {PgPort}",
-                //add  user
-                $"-U {PgUser}",
-                // add database name
-                $"-d {PgDbName}",
-                // add command
-                $"-c \"SELECT 1 as test\""
-            };
+                tcpClient.Connect(PgHost, PgPort);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                // intentionally left unhandled
+            }
 
-            var result = Utils.RunProcess(filename, args);
-
-            return result.ExitCode == 0;
+            return false;
         }
 
         private void StartServer()
         {
-            var filename = Path.Combine(PgBinDir, PgCtlExe);
+            var filename = Path.Combine(PgBinDir, _pgCtlBin);
 
             var args = new List<string>
             {
@@ -400,7 +401,7 @@ namespace MysticMind.PostgresEmbed
 
         private void StopServer()
         {
-            var filename = Path.Combine(PgBinDir, PgCtlExe);
+            var filename = Path.Combine(PgBinDir, _pgCtlBin);
 
             var args = new List<string>
             {
@@ -454,7 +455,7 @@ namespace MysticMind.PostgresEmbed
                 DownloadPgBinary();
 
                 // if the file already exists, download will be skipped
-                DownloadPgExtensions();
+                // DownloadPgExtensions();
 
                 ExtractPgBinary();
                 ExtractPgExtensions();
@@ -466,8 +467,6 @@ namespace MysticMind.PostgresEmbed
 
                 InitDb();
                 StartServer();
-
-                CreateExtensions();
             } 
             else
             {
