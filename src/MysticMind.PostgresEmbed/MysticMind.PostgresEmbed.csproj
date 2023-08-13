@@ -4,7 +4,7 @@
     <Description>Postgres embedded server equivalent for .Net applications</Description>
     <Copyright>Copyright (C) Babu Annamalai</Copyright>
     <AssemblyTitle>MysticMind.PostgresEmbed</AssemblyTitle>
-    <VersionPrefix>3.0.0</VersionPrefix>
+    <VersionPrefix>3.0.1</VersionPrefix>
     <Authors>Babu Annamalai</Authors>
     <TargetFrameworks>net6.0;net7.0</TargetFrameworks>
     <AssemblyName>MysticMind.PostgresEmbed</AssemblyName>
