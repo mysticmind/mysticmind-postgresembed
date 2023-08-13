@@ -62,7 +62,7 @@ internal class DefaultPostgresBinaryDownloader
         progress.ProgressChanged += (_, value) => Console.WriteLine("\r %{0:N0}", value);
         var downloadPath = Path.Combine(_destDir, $"embedded-postgres-binaries-{platform}-{architecture}-{_pgVersion}.jar");
         Utils.DownloadAsync(downloadUrl, downloadPath, progress, cts.Token).Wait();
-        return ExtractContent(downloadPath, zipFile);;
+        return ExtractContent(downloadPath, zipFile);
     }
     
     private string ExtractContent(string zipFile, string outputFile)
