@@ -1,4 +1,4 @@
-# MysticMind.PostgresEmbed _Postgres embedded database equivalent for .Net applications_ [![Build status](https://ci.appveyor.com/api/projects/status/k72gtg4evxas3dk3?svg=true)](https://ci.appveyor.com/project/BabuAnnamalai/mysticmind-postgresembed) [![NuGet Version](https://badgen.net/nuget/v/mysticmind.postgresembed)](https://www.nuget.org/packages/MysticMind.PostgresEmbed/)
+# MysticMind.PostgresEmbed _Postgres embedded database equivalent for .Net applications_ [![Build status](https://github.com/mysticmind/mysticmind-postgresembed/actions/workflows/ci.yaml/badge.svg)](https://github.com/mysticmind/mysticmind-postgresembed/actions/workflows/ci.yaml) [![NuGet Version](https://badgen.net/nuget/v/mysticmind.postgresembed)](https://www.nuget.org/packages/MysticMind.PostgresEmbed/)
 
 This is a library for running a Postgres server embedded equivalent including extensions targeting Windows, Linux and OSX (including Silicon - M1/M2) available in v3.x. This project also handles Postgres extensions very well with a neat way to configure and use it.
 
