@@ -72,20 +72,17 @@ namespace MysticMind.PostgresEmbed
             using Stream stream = File.OpenRead(zipFile);
             using var reader = ReaderFactory.Open(stream);
             var isWindows = Utils.IsWindows();
+            var symbolicLinks = new Dictionary<string, string>();
 
             var opts = new ExtractionOptions()
             {
                 ExtractFullPath = true,
                 Overwrite = true,
-                WriteSymbolicLink = (srcPath, targetPath) =>
+                WriteSymbolicLink = (symbolicLinkPath, symbolicLinkSourceFile) =>
                 {
                     if (isWindows) return;
-                    var targetDirectory = Path.GetDirectoryName(srcPath);
-                    var targetFullPath = Path.Combine(targetDirectory, targetPath);
-                    if (File.Exists(targetFullPath))
-                    {
-                        File.Copy(targetFullPath, srcPath);
-                    }
+                    var fileDir = Path.GetDirectoryName(symbolicLinkPath);
+                    symbolicLinks[symbolicLinkPath] = Path.Combine(fileDir, symbolicLinkSourceFile);
                 }
             };
             
@@ -103,6 +100,11 @@ namespace MysticMind.PostgresEmbed
                 }
 
                 reader.WriteEntryToFile(extractionPath, opts);
+            }
+
+            foreach (var item in symbolicLinks.Where(item => File.Exists(item.Value)))
+            {
+                File.Copy(item.Value, item.Key);
             }
         }
 
