@@ -279,15 +279,15 @@ namespace MysticMind.PostgresEmbed
             
             var username = Environment.UserName;
 
-            Utils.RunProcess("/bin/chmod",  new List<string>
+            Utils.RunProcess("chmod",  new List<string>
             {
                 $"+x {Path.Combine(PgBinDir, _initDbBin)}"
             });
-            Utils.RunProcess("/bin/chmod",  new List<string>
+            Utils.RunProcess("chmod",  new List<string>
             {
                 $"+x {Path.Combine(PgBinDir, _pgCtlBin)}"
             });
-            Utils.RunProcess("/bin/chmod",  new List<string>
+            Utils.RunProcess("chmod",  new List<string>
             {
                 $"+x {Path.Combine(PgBinDir, _postgresBin)}"
             });
