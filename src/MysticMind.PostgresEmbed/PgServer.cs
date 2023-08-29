@@ -42,6 +42,7 @@ namespace MysticMind.PostgresEmbed
         
         private readonly Platform _platform;
         private readonly Architecture _architecture;
+        private readonly string _mavenRepo;
 
         public PgServer(
             string pgVersion,
@@ -58,7 +59,8 @@ namespace MysticMind.PostgresEmbed
             int deleteFolderInitialTimeout =16, 
             int deleteFolderTimeoutFactor =2,
             string locale = "",
-            Platform? platform = null)
+            Platform? platform = null,
+            string mavenRepo = "https://repo1.maven.org/maven2")
         {
             
             _pgCtlBin = "pg_ctl";
@@ -83,6 +85,8 @@ namespace MysticMind.PostgresEmbed
             _platform = platform.Value;
             
             _architecture = Utils.GetArchitecture(_platform);
+
+            _mavenRepo = mavenRepo;
 
             PgUser = String.IsNullOrEmpty(pgUser) ? PgSuperuser : pgUser;
 
@@ -157,7 +161,7 @@ namespace MysticMind.PostgresEmbed
 
         private void DownloadPgBinary()
         {
-            var downloader = new DefaultPostgresBinaryDownloader(PgVersion, BinariesDir, _platform, _architecture);
+            var downloader = new DefaultPostgresBinaryDownloader(PgVersion, BinariesDir, _platform, _architecture, _mavenRepo);
 
             try
             {
