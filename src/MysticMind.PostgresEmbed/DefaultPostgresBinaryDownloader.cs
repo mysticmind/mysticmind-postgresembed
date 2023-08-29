@@ -13,6 +13,7 @@ internal class DefaultPostgresBinaryDownloader
     private readonly Platform _platform;
     private readonly Architecture? _architecture;
     private readonly string _destDir;
+    private readonly string _mavenRepo;
 
     /// <summary>
     /// The default Postgres binary downloader uses https://github.com/zonkyio/embedded-postgres-binaries
@@ -22,12 +23,14 @@ internal class DefaultPostgresBinaryDownloader
     /// <param name="pgVersion"></param>
     /// <param name="platform"></param>
     /// <param name="architecture"></param>
-    public DefaultPostgresBinaryDownloader(string pgVersion, string destDir, Platform platform, Architecture? architecture)
+    /// <param name="mavenRepo"></param>
+    public DefaultPostgresBinaryDownloader(string pgVersion, string destDir, Platform platform, Architecture? architecture, string mavenRepo)
     {
         _destDir = destDir;
         _pgVersion = pgVersion;
         _platform = platform;
         _architecture = architecture;
+        _mavenRepo = mavenRepo;
     }
 
     public string Download()
@@ -45,7 +48,7 @@ internal class DefaultPostgresBinaryDownloader
             architecture = "alpine-lite";
         }
         
-        var downloadUrl = $"https://repo1.maven.org/maven2/io/zonky/test/postgres/embedded-postgres-binaries-{platform}-{architecture}/{_pgVersion}/embedded-postgres-binaries-{platform}-{architecture}-{_pgVersion}.jar";
+        var downloadUrl = $"{_mavenRepo}/io/zonky/test/postgres/embedded-postgres-binaries-{platform}-{architecture}/{_pgVersion}/embedded-postgres-binaries-{platform}-{architecture}-{_pgVersion}.jar";
         var fileName = Path.GetFileName(downloadUrl);
         var destFile = Path.Join(_destDir, fileName);
         var zipFile = Path.Join(_destDir, Path.GetFileNameWithoutExtension(fileName) + ".txz");
