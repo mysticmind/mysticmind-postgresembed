@@ -16,7 +16,6 @@ namespace MysticMind.PostgresEmbed
         private const string PgHost = "localhost";
         private const string PgDbname = "postgres";
         private const string PgStopWaitS = "5";
-        private const int PgStartupWaitMs = 10 * 1000;
         private const string PgStopMode = "fast";
 
         private string _pgBinaryFullPath;
@@ -43,6 +42,8 @@ namespace MysticMind.PostgresEmbed
         private readonly Platform _platform;
         private readonly Architecture _architecture;
         private readonly string _mavenRepo;
+        
+        private readonly int _startupWaitMs;
 
         public PgServer(
             string pgVersion,
@@ -60,6 +61,7 @@ namespace MysticMind.PostgresEmbed
             int deleteFolderTimeoutFactor =2,
             string locale = "",
             Platform? platform = null,
+            int startupWaitTime = 20000,
             string mavenRepo = "https://repo1.maven.org/maven2")
         {
             
@@ -87,6 +89,8 @@ namespace MysticMind.PostgresEmbed
             _architecture = Utils.GetArchitecture(_platform);
 
             _mavenRepo = mavenRepo;
+
+            _startupWaitMs = startupWaitTime;
 
             PgUser = String.IsNullOrEmpty(pgUser) ? PgSuperuser : pgUser;
 
@@ -426,7 +430,7 @@ namespace MysticMind.PostgresEmbed
 
         private void WaitForServerStartup(Stopwatch watch)
         {
-            while (watch.ElapsedMilliseconds < PgStartupWaitMs)
+            while (watch.ElapsedMilliseconds < _startupWaitMs)
             {
                 // verify if server ready
                 if (VerifyReady())
@@ -439,7 +443,7 @@ namespace MysticMind.PostgresEmbed
 
             watch.Stop();
 
-            throw new IOException($"Gave up waiting for server to start after {PgStartupWaitMs}ms");
+            throw new IOException($"Gave up waiting for server to start after {_startupWaitMs}ms");
         }
 
         private void StopServer()
