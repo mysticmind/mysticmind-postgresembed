@@ -1,23 +1,21 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 
-namespace MysticMind.PostgresEmbed
+namespace MysticMind.PostgresEmbed;
+
+public class PgExtensionConfig
 {
-    public class PgExtensionConfig
+    public PgExtensionConfig(string downloadUrl)
     {
-        public PgExtensionConfig(string downloadUrl)
+        if (string.IsNullOrEmpty(downloadUrl))
         {
-            if (string.IsNullOrEmpty(downloadUrl))
-            {
-                throw new ArgumentException("downloadUrl is required");
-            }
-
-            DownloadUrl = downloadUrl;
+            throw new ArgumentException("downloadUrl is required");
         }
-        
-        public string DownloadUrl { get; private set; }
 
-        public List<string> CreateExtensionSqlList { get; } = new List<string>();
+        DownloadUrl = downloadUrl;
     }
+        
+    public string DownloadUrl { get; private set; }
+
+    public List<string> CreateExtensionSqlList { get; } = new List<string>();
 }

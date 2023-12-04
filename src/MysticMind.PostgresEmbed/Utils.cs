@@ -13,244 +13,243 @@ using SharpCompress.Common;
 using SharpCompress.Readers;
 using System.Runtime.InteropServices;
 
-namespace MysticMind.PostgresEmbed
+namespace MysticMind.PostgresEmbed;
+
+internal class ProcessResult
 {
-    internal class ProcessResult
+    public int ExitCode { get; init; }
+
+    public string Output { get; init; }
+
+    public string Error { get; init; }
+}
+
+internal static class Utils
+{
+    public static async Task DownloadAsync(string url, string downloadFullPath, IProgress<double> progress, CancellationToken token)
     {
-        public int ExitCode { get; init; }
+        var client = new HttpClient();
 
-        public string Output { get; init; }
+        using HttpResponseMessage response = client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, token).Result;
+        response.EnsureSuccessStatusCode();
 
-        public string Error { get; init; }
+        await using Stream contentStream = await response.Content.ReadAsStreamAsync(token), fileStream = new FileStream(downloadFullPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
+        var totalRead = 0L;
+        var totalReads = 0L;
+        var buffer = new byte[8192];
+        var isMoreToRead = true;
+
+        do
+        {
+            var read = await contentStream.ReadAsync(buffer, 0, buffer.Length, token);
+            if (read == 0)
+            {
+                isMoreToRead = false;
+            }
+            else
+            {
+                await fileStream.WriteAsync(buffer.AsMemory(0, read), token);
+
+                totalRead += read;
+                totalReads += 1;
+
+                if (totalReads % 2000 == 0)
+                {
+                    Console.WriteLine($"total bytes downloaded so far: {totalRead:n0}");
+                }
+            }
+        }
+        while (isMoreToRead);
     }
 
-    internal static class Utils
-    {
-        public static async Task DownloadAsync(string url, string downloadFullPath, IProgress<double> progress, CancellationToken token)
-        {
-            var client = new HttpClient();
-
-            using HttpResponseMessage response = client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, token).Result;
-            response.EnsureSuccessStatusCode();
-
-            await using Stream contentStream = await response.Content.ReadAsStreamAsync(token), fileStream = new FileStream(downloadFullPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
-            var totalRead = 0L;
-            var totalReads = 0L;
-            var buffer = new byte[8192];
-            var isMoreToRead = true;
-
-            do
-            {
-                var read = await contentStream.ReadAsync(buffer, 0, buffer.Length, token);
-                if (read == 0)
-                {
-                    isMoreToRead = false;
-                }
-                else
-                {
-                    await fileStream.WriteAsync(buffer.AsMemory(0, read), token);
-
-                    totalRead += read;
-                    totalReads += 1;
-
-                    if (totalReads % 2000 == 0)
-                    {
-                        Console.WriteLine($"total bytes downloaded so far: {totalRead:n0}");
-                    }
-                }
-            }
-            while (isMoreToRead);
-        }
-
-        // public static void ExtractZip(string zipFile, string destDir, string extractPath="", bool ignoreRootDir=false)
-        // {
-        //     ZipFile.ExtractToDirectory(zipFile, destDir, overwriteFiles: true);
-        // }
+    // public static void ExtractZip(string zipFile, string destDir, string extractPath="", bool ignoreRootDir=false)
+    // {
+    //     ZipFile.ExtractToDirectory(zipFile, destDir, overwriteFiles: true);
+    // }
         
-        public static void ExtractZip(string zipFile, string destDir, string extractPath="", bool ignoreRootDir=false)
-        {
-            using Stream stream = File.OpenRead(zipFile);
-            using var reader = ReaderFactory.Open(stream);
-            var isWindows = Utils.IsWindows();
-            var symbolicLinks = new Dictionary<string, string>();
+    public static void ExtractZip(string zipFile, string destDir, string extractPath="", bool ignoreRootDir=false)
+    {
+        using Stream stream = File.OpenRead(zipFile);
+        using var reader = ReaderFactory.Open(stream);
+        var isWindows = Utils.IsWindows();
+        var symbolicLinks = new Dictionary<string, string>();
 
-            var opts = new ExtractionOptions()
+        var opts = new ExtractionOptions()
+        {
+            ExtractFullPath = true,
+            Overwrite = true,
+            WriteSymbolicLink = (symbolicLinkPath, symbolicLinkSourceFile) =>
             {
-                ExtractFullPath = true,
-                Overwrite = true,
-                WriteSymbolicLink = (symbolicLinkPath, symbolicLinkSourceFile) =>
-                {
-                    if (isWindows) return;
-                    var fileDir = Path.GetDirectoryName(symbolicLinkPath);
-                    symbolicLinks[symbolicLinkPath] = Path.Combine(fileDir, symbolicLinkSourceFile);
-                }
-            };
+                if (isWindows) return;
+                var fileDir = Path.GetDirectoryName(symbolicLinkPath);
+                symbolicLinks[symbolicLinkPath] = Path.Combine(fileDir, symbolicLinkSourceFile);
+            }
+        };
             
-            while (reader.MoveToNextEntry())
+        while (reader.MoveToNextEntry())
+        {
+            if (reader.Entry.IsDirectory) continue;
+            // Specify the extraction path for the entry
+            var extractionPath = Path.Combine(destDir, reader.Entry.Key);
+
+            // Ensure that the target directory exists
+            var targetDirectory = Path.GetDirectoryName(extractionPath);
+            if (!Directory.Exists(targetDirectory))
             {
-                if (reader.Entry.IsDirectory) continue;
-                // Specify the extraction path for the entry
-                var extractionPath = Path.Combine(destDir, reader.Entry.Key);
-
-                // Ensure that the target directory exists
-                var targetDirectory = Path.GetDirectoryName(extractionPath);
-                if (!Directory.Exists(targetDirectory))
-                {
-                    Directory.CreateDirectory(targetDirectory!);    
-                }
-
-                reader.WriteEntryToFile(extractionPath, opts);
+                Directory.CreateDirectory(targetDirectory!);    
             }
 
-            foreach (var item in symbolicLinks.Where(item => File.Exists(item.Value)))
-            {
-                File.Copy(item.Value, item.Key);
-            }
+            reader.WriteEntryToFile(extractionPath, opts);
         }
 
-        public static void ExtractZipFolder(string zipFile, string destDir, string extractPath = "", bool ignoreRootDir = false)
+        foreach (var item in symbolicLinks.Where(item => File.Exists(item.Value)))
         {
-            using var archive = ZipFile.OpenRead(zipFile);
-            var result = from entry in archive.Entries
-                where entry.FullName.StartsWith(extractPath)
-                select entry;
-
-            foreach (var entry in result)
-            {
-                var fullName = entry.FullName;
-
-                if (ignoreRootDir)
-                {
-                    var pathParts = entry.FullName.Split('/');
-                    pathParts = pathParts.Skip(1).ToArray();
-
-                    fullName = Path.Combine(pathParts);
-                }
-
-                var fullPath = Path.Combine(destDir, fullName);
-                if (string.IsNullOrEmpty(entry.Name))
-                {
-                    Directory.CreateDirectory(fullPath);
-                }
-                else
-                {
-                    entry.ExtractToFile(fullPath, overwrite: true);
-                }
-            }
+            File.Copy(item.Value, item.Key);
         }
+    }
 
-        public static int GetAvailablePort(int startingPort=5500)
+    public static void ExtractZipFolder(string zipFile, string destDir, string extractPath = "", bool ignoreRootDir = false)
+    {
+        using var archive = ZipFile.OpenRead(zipFile);
+        var result = from entry in archive.Entries
+            where entry.FullName.StartsWith(extractPath)
+            select entry;
+
+        foreach (var entry in result)
         {
-            List<int> portArray = new List<int>();
+            var fullName = entry.FullName;
 
-            IPGlobalProperties properties = IPGlobalProperties.GetIPGlobalProperties();
-
-            //getting active connections
-            TcpConnectionInformation[] connections = properties.GetActiveTcpConnections();
-            portArray.AddRange(from n in connections
-                               where n.LocalEndPoint.Port >= startingPort
-                               select n.LocalEndPoint.Port);
-
-            //getting active tcp listeners
-            var endPoints = properties.GetActiveTcpListeners();
-            portArray.AddRange(from n in endPoints
-                               where n.Port >= startingPort
-                               select n.Port);
-
-            //getting active udp listeners
-            endPoints = properties.GetActiveUdpListeners();
-            portArray.AddRange(from n in endPoints
-                               where n.Port >= startingPort
-                               select n.Port);
-
-            portArray.Sort();
-
-            for (int i = startingPort; i < UInt16.MaxValue; i++)
-                if (!portArray.Contains(i))
-                    return i;
-
-            return 0;
-        }
-
-        public static ProcessResult RunProcess(string filename, List<string> args)
-        {
-            var outputBuilder = new StringBuilder();
-            var errorBuilder = new StringBuilder();
-
-            using var p = new Process();
-            p.StartInfo.RedirectStandardError = true;
-            p.StartInfo.RedirectStandardOutput = true;
-            p.StartInfo.UseShellExecute = false;
-            p.EnableRaisingEvents = true;
-            p.OutputDataReceived += (_, e) =>
+            if (ignoreRootDir)
             {
-                if (!string.IsNullOrEmpty(e.Data))
-                    outputBuilder.AppendLine(e.Data);
-            };
+                var pathParts = entry.FullName.Split('/');
+                pathParts = pathParts.Skip(1).ToArray();
 
-            p.ErrorDataReceived += (_, e) =>
-            {
-                if (!string.IsNullOrEmpty(e.Data))
-                    errorBuilder.AppendLine(e.Data);
-            };
-
-            p.StartInfo.FileName = filename;
-            p.StartInfo.Arguments = string.Join(" ", args);
-            p.StartInfo.CreateNoWindow = true;
-
-            p.Start();
-
-            p.BeginOutputReadLine();
-            p.BeginErrorReadLine();
-
-            p.WaitForExit();
-
-            p.CancelOutputRead();
-            p.CancelErrorRead();
-
-            var output = outputBuilder.ToString();
-            var error = errorBuilder.ToString();
-
-            return new ProcessResult { ExitCode = p.ExitCode, Output = output, Error = error };
-        }
-
-        public static bool IsWindows()
-        {
-            return RuntimeInformation.IsOSPlatform(
-                OSPlatform.Windows
-            );
-        }
-
-        public static Platform? GetPlatform()
-        {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                return Platform.Windows;
+                fullName = Path.Combine(pathParts);
             }
 
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            var fullPath = Path.Combine(destDir, fullName);
+            if (string.IsNullOrEmpty(entry.Name))
             {
-                return Platform.Linux;
+                Directory.CreateDirectory(fullPath);
             }
-
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            else
             {
-                return Platform.Darwin;
+                entry.ExtractToFile(fullPath, overwrite: true);
             }
+        }
+    }
 
-            return null;
+    public static int GetAvailablePort(int startingPort=5500)
+    {
+        List<int> portArray = new List<int>();
+
+        IPGlobalProperties properties = IPGlobalProperties.GetIPGlobalProperties();
+
+        //getting active connections
+        TcpConnectionInformation[] connections = properties.GetActiveTcpConnections();
+        portArray.AddRange(from n in connections
+            where n.LocalEndPoint.Port >= startingPort
+            select n.LocalEndPoint.Port);
+
+        //getting active tcp listeners
+        var endPoints = properties.GetActiveTcpListeners();
+        portArray.AddRange(from n in endPoints
+            where n.Port >= startingPort
+            select n.Port);
+
+        //getting active udp listeners
+        endPoints = properties.GetActiveUdpListeners();
+        portArray.AddRange(from n in endPoints
+            where n.Port >= startingPort
+            select n.Port);
+
+        portArray.Sort();
+
+        for (int i = startingPort; i < UInt16.MaxValue; i++)
+            if (!portArray.Contains(i))
+                return i;
+
+        return 0;
+    }
+
+    public static ProcessResult RunProcess(string filename, List<string> args)
+    {
+        var outputBuilder = new StringBuilder();
+        var errorBuilder = new StringBuilder();
+
+        using var p = new Process();
+        p.StartInfo.RedirectStandardError = true;
+        p.StartInfo.RedirectStandardOutput = true;
+        p.StartInfo.UseShellExecute = false;
+        p.EnableRaisingEvents = true;
+        p.OutputDataReceived += (_, e) =>
+        {
+            if (!string.IsNullOrEmpty(e.Data))
+                outputBuilder.AppendLine(e.Data);
+        };
+
+        p.ErrorDataReceived += (_, e) =>
+        {
+            if (!string.IsNullOrEmpty(e.Data))
+                errorBuilder.AppendLine(e.Data);
+        };
+
+        p.StartInfo.FileName = filename;
+        p.StartInfo.Arguments = string.Join(" ", args);
+        p.StartInfo.CreateNoWindow = true;
+
+        p.Start();
+
+        p.BeginOutputReadLine();
+        p.BeginErrorReadLine();
+
+        p.WaitForExit();
+
+        p.CancelOutputRead();
+        p.CancelErrorRead();
+
+        var output = outputBuilder.ToString();
+        var error = errorBuilder.ToString();
+
+        return new ProcessResult { ExitCode = p.ExitCode, Output = output, Error = error };
+    }
+
+    public static bool IsWindows()
+    {
+        return RuntimeInformation.IsOSPlatform(
+            OSPlatform.Windows
+        );
+    }
+
+    public static Platform? GetPlatform()
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            return Platform.Windows;
         }
 
-        public static Architecture GetArchitecture(Platform platform)
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            if (platform is not Platform.Darwin) return Architecture.Amd64;
+            return Platform.Linux;
+        }
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            return Platform.Darwin;
+        }
+
+        return null;
+    }
+
+    public static Architecture GetArchitecture(Platform platform)
+    {
+        if (platform is not Platform.Darwin) return Architecture.Amd64;
             
-            var processResult = Utils.RunProcess("sysctl", new List<string>
-            {
-                "machdep.cpu.brand_string"
-            });
+        var processResult = Utils.RunProcess("sysctl", new List<string>
+        {
+            "machdep.cpu.brand_string"
+        });
 
-            return processResult.Output.Contains("Apple M") ? Architecture.Arm64V8 : Architecture.Amd64;
-        }
+        return processResult.Output.Contains("Apple M") ? Architecture.Arm64V8 : Architecture.Amd64;
     }
 }
