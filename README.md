@@ -58,7 +58,7 @@ using (var server = new MysticMind.PostgresEmbed.PgServer("15.3.0"))
 
     await conn.OpenAsync();
     await cmd.ExecuteNonQueryAsync();
-    conn.Close();
+    await conn.CloseAsync();
 }
 ```
 
