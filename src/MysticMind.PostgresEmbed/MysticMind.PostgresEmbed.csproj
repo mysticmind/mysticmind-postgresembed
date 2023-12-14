@@ -4,9 +4,9 @@
     <Description>Postgres embedded server equivalent for .Net applications</Description>
     <Copyright>Copyright (C) Babu Annamalai</Copyright>
     <AssemblyTitle>MysticMind.PostgresEmbed</AssemblyTitle>
-    <VersionPrefix>3.1.0</VersionPrefix>
+    <VersionPrefix>3.2.0</VersionPrefix>
     <Authors>Babu Annamalai</Authors>
-    <TargetFrameworks>net6.0;net7.0</TargetFrameworks>
+    <TargetFrameworks>net6.0;net7.0;net8.0</TargetFrameworks>
     <AssemblyName>MysticMind.PostgresEmbed</AssemblyName>
     <PackageId>MysticMind.PostgresEmbed</PackageId>
     <PackageTags>postgres;postgresql;pg;embed;embedded;server;.net 4.6;net 4.6;net46;.net core;net core;netcore;netcore 2.0;netcore rtm</PackageTags>
@@ -16,8 +16,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Polly" Version="7.2.3" />
-    <PackageReference Include="SharpCompress" Version="0.33.0" />
+    <PackageReference Include="Polly" Version="8.2.0" />
+    <PackageReference Include="SharpCompress" Version="0.34.2" />
     <PackageReference Include="System.Diagnostics.Process" Version="4.3.0" />
     <PackageReference Include="System.IO.Compression.ZipFile" Version="4.3.0" />
     <PackageReference Include="System.Net.NetworkInformation" Version="4.3.0" />

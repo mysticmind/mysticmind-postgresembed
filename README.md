@@ -195,6 +195,7 @@ The following steps are done when you run an embedded server:
 - With regards to postgres extensions, end-users will need to run `create extension <extn_name>;` to install the extension. Library will only download and extract the extension based on the url provided.
 
 ## Known Issues
+- Some test tend to fail when running all at once in Rider with the exception message: "the database system is starting up". Just rerun that specific test and it will pass.
 
 ### Npgsql exception
 If you are using [Npgsql](https://github.com/npgsql), when you execute the server, you may sporadically notice the following exception
