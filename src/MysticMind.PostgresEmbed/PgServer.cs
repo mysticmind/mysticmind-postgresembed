@@ -61,7 +61,7 @@ public class PgServer : IDisposable, IAsyncDisposable
         int deleteFolderTimeoutFactor =2,
         string locale = "",
         Platform? platform = null,
-        int startupWaitTime = 20000,
+        int startupWaitTime = 30000,
         string mavenRepo = "https://repo1.maven.org/maven2")
     {
             

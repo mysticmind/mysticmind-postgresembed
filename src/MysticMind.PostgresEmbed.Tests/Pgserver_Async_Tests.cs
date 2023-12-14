@@ -194,8 +194,7 @@ public class PgServerAsyncTests
                 "15.3.0",
                 addLocalUserAccessPermission: AddLocalUserAccessPermission,
                 instanceId: instanceId,
-                clearInstanceDirOnStop:true,
-                startupWaitTime:20*1000
+                clearInstanceDirOnStop:true
             )
         )
         {
