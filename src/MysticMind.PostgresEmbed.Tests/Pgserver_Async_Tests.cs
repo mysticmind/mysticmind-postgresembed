@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 namespace MysticMind.PostgresEmbed.Tests;
 
+[Collection("Non-Parallel Collection")]
 public class PgServerAsyncTests
 {
     private const string PgUser = "postgres";

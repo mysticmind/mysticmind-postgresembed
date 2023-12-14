@@ -6,6 +6,12 @@ using System.Runtime.InteropServices;
 
 namespace MysticMind.PostgresEmbed.Tests;
 
+[CollectionDefinition("Non-Parallel Collection", DisableParallelization = true)]
+public class NonParallelCollectionDefinitionClass
+{
+}
+
+[Collection("Non-Parallel Collection")]
 public class PgServerTests
 {
     private const string PgUser = "postgres";

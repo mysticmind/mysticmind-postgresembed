@@ -41,7 +41,7 @@ internal static class Utils
 
         do
         {
-            var read = await contentStream.ReadAsync(buffer, 0, buffer.Length, token);
+            var read = await contentStream.ReadAsync(buffer, token);
             if (read == 0)
             {
                 isMoreToRead = false;
