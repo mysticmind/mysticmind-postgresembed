@@ -61,6 +61,42 @@ internal static class Utils
         }
         while (isMoreToRead);
     }
+    
+    public static void Download(string url, string downloadFullPath, IProgress<double> progress)
+    {
+        var client = new HttpClient();
+
+        using var response = client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, CancellationToken.None).Result;
+        response.EnsureSuccessStatusCode();
+
+        using Stream contentStream = response.Content.ReadAsStream(), fileStream = new FileStream(downloadFullPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
+        var totalRead = 0L;
+        var totalReads = 0L;
+        var buffer = new byte[8192];
+        var isMoreToRead = true;
+
+        do
+        {
+            var read = contentStream.Read(buffer, 0, buffer.Length);
+            if (read == 0)
+            {
+                isMoreToRead = false;
+            }
+            else
+            {
+                fileStream.Write(buffer.AsSpan(0, read));
+
+                totalRead += read;
+                totalReads += 1;
+
+                if (totalReads % 2000 == 0)
+                {
+                    Console.WriteLine($"total bytes downloaded so far: {totalRead:n0}");
+                }
+            }
+        }
+        while (isMoreToRead);
+    }
 
     // public static void ExtractZip(string zipFile, string destDir, string extractPath="", bool ignoreRootDir=false)
     // {

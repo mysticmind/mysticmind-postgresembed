@@ -10,7 +10,7 @@ using Polly;
 
 namespace MysticMind.PostgresEmbed;
 
-public class PgServer : IDisposable
+public class PgServer : IDisposable, IAsyncDisposable
 {
     private const string PgSuperuser = "postgres";
     private const string PgHost = "localhost";
@@ -143,23 +143,23 @@ public class PgServer : IDisposable
         }
     }
 
-    public string PgVersion { get; private set; }
+    public string PgVersion { get; }
 
-    public string PgUser { get; private set; }
+    public string PgUser { get; }
 
-    public string DbDir { get; private set; }
+    public string DbDir { get; }
 
-    public string BinariesDir { get; private set; }
+    public string BinariesDir { get; }
 
-    public string InstanceDir { get; private set; }
+    public string InstanceDir { get; }
 
-    public string PgBinDir { get; private set; }
+    public string PgBinDir { get; }
 
-    public string DataDir { get; private set; }
+    public string DataDir { get; }
 
-    public int PgPort { get; private set; }
+    public int PgPort { get; }
 
-    public string Locale { get; private set; }
+    public string Locale { get; }
 
     public string PgDbName => PgDbname;
 
@@ -169,7 +169,21 @@ public class PgServer : IDisposable
 
         try
         {
-            _pgBinaryFullPath = _downloadRetryPolicy.Execute(() => downloader.Download());
+            _pgBinaryFullPath = _downloadRetryPolicy.Execute(downloader.Download);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Failed to download PgBinary", ex);
+        }
+    }
+    
+    private async Task DownloadPgBinaryAsync()
+    {
+        var downloader = new DefaultPostgresBinaryDownloader(PgVersion, BinariesDir, _platform, _architecture, _mavenRepo);
+
+        try
+        {
+            _pgBinaryFullPath = await _downloadRetryPolicy.Execute(downloader.DownloadAsync);
         }
         catch (Exception ex)
         {
@@ -181,7 +195,15 @@ public class PgServer : IDisposable
     {
         foreach (var pgExtensionInstance in _pgExtensions.Select(extensionConfig => new PgExtension(BinariesDir, InstanceDir, extensionConfig)))
         {
-            _downloadRetryPolicy.Execute(() => pgExtensionInstance.Download());
+            _downloadRetryPolicy.Execute(pgExtensionInstance.Download);
+        }
+    }
+    
+    private async Task DownloadPgExtensionsAsync()
+    {
+        foreach (var pgExtensionInstance in _pgExtensions.Select(extensionConfig => new PgExtension(BinariesDir, InstanceDir, extensionConfig)))
+        {
+            await _downloadRetryPolicy.Execute(pgExtensionInstance.DownloadAsync);
         }
     }
 
@@ -284,8 +306,6 @@ public class PgServer : IDisposable
         {
             return;    
         }
-            
-        var username = Environment.UserName;
 
         Utils.RunProcess("chmod",  new List<string>
         {
@@ -520,9 +540,46 @@ public class PgServer : IDisposable
         {
             StartServer();
         }
-            
     }
 
+    public async Task StartAsync(CancellationToken token)
+    {
+        // clear working directory based on flag passed
+        if (_clearWorkingDirOnStart)
+        {
+            RemoveWorkingDir();
+        }
+
+        if (!Directory.Exists(InstanceDir))
+        {
+            CreateDirs();
+
+            // if the file already exists, download will be skipped
+            await DownloadPgBinaryAsync();
+
+            // if the file already exists, download will be skipped
+            await DownloadPgExtensionsAsync();
+
+            ExtractPgBinary();
+            ExtractPgExtensions();
+
+            if (_addLocalUserAccessPermission)
+            {
+                AddLocalUserAccessPermission();
+            }
+
+            SetBinariesAsExecutable();
+            InitDb();
+            StartServer();
+        } 
+        else
+        {
+            StartServer();
+        }
+    }
+
+    public async Task StartAsync() => await StartAsync(CancellationToken.None);
+    
     public void Stop()
     {
         StopServer();
@@ -535,16 +592,10 @@ public class PgServer : IDisposable
         }
     }
 
-    public async Task StartAsync(CancellationToken token)
+    public Task StopAsync(CancellationToken token)
     {
-        await Task.Run(Start, token);
-    }
-
-    public async Task StartAsync() => await StartAsync(CancellationToken.None);
-
-    public async Task StopAsync(CancellationToken token)
-    {
-        await Task.Run(Stop, token);
+        Stop();
+        return Task.CompletedTask;
     }
 
     public async Task StopAsync() => await StopAsync(CancellationToken.None);
@@ -552,5 +603,12 @@ public class PgServer : IDisposable
     public void Dispose()
     {
         Stop();
+        GC.SuppressFinalize(this);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await StopAsync();
+        GC.SuppressFinalize(this);
     }
 }

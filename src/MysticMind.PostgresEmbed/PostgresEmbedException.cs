@@ -9,10 +9,6 @@ public class PostgresEmbedException : Exception
     {
     }
 
-    protected PostgresEmbedException(SerializationInfo info, StreamingContext context): base(info, context)
-    {
-    }
-
     public PostgresEmbedException(string message): base(message)
     {
     }

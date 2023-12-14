@@ -3,6 +3,7 @@ using System.Linq;
 using System.IO;
 using System.IO.Compression;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace MysticMind.PostgresEmbed;
 
@@ -42,8 +43,35 @@ internal class PgExtension
         try
         {
             // download the file
+            Utils.Download(_config.DownloadUrl, zipFile, progress);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Failed to download {_config.DownloadUrl}", ex);
+        }
+
+        return zipFile;
+    }
+    
+    public async Task<string> DownloadAsync()
+    {
+        var zipFile = Path.Combine(_binariesDir, _filename);
+
+        // check if zip file exists in the destination folder
+        // return the file path and don't require to download again
+        if (File.Exists(zipFile))
+        {
+            return zipFile;
+        }
+
+        var progress = new Progress<double>();
+        progress.ProgressChanged += (_, value) => Console.WriteLine("\r %{0:N0}", value);
+
+        try
+        {
+            // download the file
             var cs = new CancellationTokenSource();
-            Utils.DownloadAsync(_config.DownloadUrl, zipFile, progress, cs.Token).Wait(cs.Token);
+            await Utils.DownloadAsync(_config.DownloadUrl, zipFile, progress, cs.Token);
         }
         catch (Exception ex)
         {
@@ -67,7 +95,7 @@ internal class PgExtension
         Utils.ExtractZipFolder(zipFile, _pgDir, containerFolderInBinary, ignoreRootFolder);
     }
 
-    private string GetContainerFolderInBinary(string zipFile)
+    private static string GetContainerFolderInBinary(string zipFile)
     {
         //some of the extension binaries may have a root folder which need to be ignored while extracting content
         var containerFolder = "";

@@ -6,7 +6,6 @@ env:
   config: Release
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
-  dotnet_core_version: 7.0.x
 
 jobs:
   publish_job:
@@ -14,12 +13,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Install .NET 7.0.x
+      - name: Install .NET 8.0.x
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: 7.0.x
+          dotnet-version: 8.0.x
 
       - name: Run Pack
         run: dotnet pack src/MysticMind.PostgresEmbed/MysticMind.PostgresEmbed.csproj -c Release
