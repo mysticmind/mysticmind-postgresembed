@@ -257,4 +257,91 @@ public class PgServerAsyncTests
         await cmd.ExecuteNonQueryAsync();
         await conn.CloseAsync();
     }
+
+    [SkippableFact]
+    public async Task create_server_with_spaces_in_db_dir()
+    {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "Test supported only on Windows");
+
+        var pathWithSpaces = Path.Combine(Directory.GetCurrentDirectory(), "folder with spaces");
+        if (!Directory.Exists(pathWithSpaces)) Directory.CreateDirectory(pathWithSpaces);
+
+        await using var server = new PgServer(
+            "15.3.0",
+            dbDir: pathWithSpaces,
+            addLocalUserAccessPermission: AddLocalUserAccessPermission,
+            clearInstanceDirOnStop: true);
+        await server.StartAsync();
+
+        // Note: set pooling to false to prevent connecting issues
+        // https://github.com/npgsql/npgsql/issues/939
+        var connStr = string.Format(ConnStr, server.PgPort, PgUser);
+        var conn = new Npgsql.NpgsqlConnection(connStr);
+        var cmd =
+            new Npgsql.NpgsqlCommand(
+                "CREATE TABLE table1(ID CHAR(256) CONSTRAINT id PRIMARY KEY, Title CHAR)",
+                conn);
+
+        await conn.OpenAsync();
+        await cmd.ExecuteNonQueryAsync();
+        await conn.CloseAsync();
+    }
+
+    [SkippableFact]
+    public async Task create_server_with_spaces_in_db_dir_with_local_user_perm()
+    {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "Test supported only on Windows");
+
+        var pathWithSpaces = Path.Combine(Directory.GetCurrentDirectory(), "folder with spaces");
+        if (!Directory.Exists(pathWithSpaces)) Directory.CreateDirectory(pathWithSpaces);
+
+        await using var server = new PgServer(
+            "15.3.0",
+            dbDir: pathWithSpaces,
+            addLocalUserAccessPermission: true,
+            clearInstanceDirOnStop: true);
+        await server.StartAsync();
+
+        // Note: set pooling to false to prevent connecting issues
+        // https://github.com/npgsql/npgsql/issues/939
+        var connStr = string.Format(ConnStr, server.PgPort, PgUser);
+        var conn = new Npgsql.NpgsqlConnection(connStr);
+        var cmd =
+            new Npgsql.NpgsqlCommand(
+                "CREATE TABLE table1(ID CHAR(256) CONSTRAINT id PRIMARY KEY, Title CHAR)",
+                conn);
+
+        await conn.OpenAsync();
+        await cmd.ExecuteNonQueryAsync();
+        await conn.CloseAsync();
+    }
+
+    [SkippableFact]
+    public async Task create_server_with_spaces_in_db_dir_parent_dir()
+    {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "Test supported only on Windows");
+
+        var pathWithSpaces = Path.Combine(Directory.GetCurrentDirectory(), "folder with spaces", "folder");
+        if (!Directory.Exists(pathWithSpaces)) Directory.CreateDirectory(pathWithSpaces);
+
+        await using var server = new PgServer(
+            "15.3.0",
+            dbDir: pathWithSpaces,
+            addLocalUserAccessPermission: true,
+            clearInstanceDirOnStop: true);
+        await server.StartAsync();
+
+        // Note: set pooling to false to prevent connecting issues
+        // https://github.com/npgsql/npgsql/issues/939
+        var connStr = string.Format(ConnStr, server.PgPort, PgUser);
+        var conn = new Npgsql.NpgsqlConnection(connStr);
+        var cmd =
+            new Npgsql.NpgsqlCommand(
+                "CREATE TABLE table1(ID CHAR(256) CONSTRAINT id PRIMARY KEY, Title CHAR)",
+                conn);
+
+        await conn.OpenAsync();
+        await cmd.ExecuteNonQueryAsync();
+        await conn.CloseAsync();
+    }
 }
