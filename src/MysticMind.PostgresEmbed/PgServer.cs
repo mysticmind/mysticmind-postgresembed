@@ -280,7 +280,7 @@ public class PgServer : IDisposable, IAsyncDisposable
         // get the local user under which the program runs
         var currentLocalUser = Environment.GetEnvironmentVariable("Username");
 
-        args.Add(InstanceDir);
+        args.Add($"\"{InstanceDir}\"");
         args.Add("/t");
         args.Add("/grant:r");
         args.Add($"{currentLocalUser}:(OI)(CI)F");
@@ -327,7 +327,7 @@ public class PgServer : IDisposable, IAsyncDisposable
         var args = new List<string>
         {
             // add data dir
-            $"-D {DataDir}",
+            $"-D \"{DataDir}\"",
             // add super user
             $"-U {PgUser}",
             // add encoding
@@ -397,7 +397,7 @@ public class PgServer : IDisposable, IAsyncDisposable
         var args = new List<string>
         {
             // add the data dir arg
-            $"-D {DataDir}",
+            $"-D \"{DataDir}\"",
             // add user
             $"-U {PgUser}"
         };
@@ -473,7 +473,7 @@ public class PgServer : IDisposable, IAsyncDisposable
         var args = new List<string>
         {
             // add data dir
-            $"-D {DataDir}",
+            $"-D \"{DataDir}\"",
             // add user
             $"-U {PgUser}",
             // add stop mode
