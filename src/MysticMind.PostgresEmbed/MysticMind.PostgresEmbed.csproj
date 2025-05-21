@@ -16,7 +16,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Polly" Version="8.2.0" />
+    <PackageReference Include="Polly.Core" Version="8.5.2" />
     <PackageReference Include="SharpCompress" Version="0.34.2" />
     <PackageReference Include="System.Diagnostics.Process" Version="4.3.0" />
     <PackageReference Include="System.IO.Compression.ZipFile" Version="4.3.0" />

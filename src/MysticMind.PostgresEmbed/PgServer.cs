@@ -1,12 +1,13 @@
+using Polly;
+using Polly.Retry;
 using System;
-using System.IO;
-using System.Diagnostics;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
-using Polly;
 
 namespace MysticMind.PostgresEmbed;
 
@@ -36,13 +37,13 @@ public class PgServer : IDisposable, IAsyncDisposable
 
     private readonly bool _addLocalUserAccessPermission;
 
-    private readonly Policy _downloadRetryPolicy;
-    private readonly Policy _deleteFoldersRetryPolicy;
-        
+    private readonly ResiliencePipeline _downloadRetryPolicy;
+    private readonly ResiliencePipeline _deleteFoldersRetryPolicy;
+
     private readonly Platform _platform;
     private readonly Architecture _architecture;
     private readonly string _mavenRepo;
-        
+
     private readonly int _startupWaitMs;
 
     public PgServer(
@@ -54,17 +55,17 @@ public class PgServer : IDisposable, IAsyncDisposable
         Dictionary<string, string> pgServerParams = null,
         List<PgExtensionConfig> pgExtensions = null,
         bool addLocalUserAccessPermission = false,
-        bool clearInstanceDirOnStop = false, 
-        bool clearWorkingDirOnStart=false,
-        int deleteFolderRetryCount =5, 
-        int deleteFolderInitialTimeout =16, 
-        int deleteFolderTimeoutFactor =2,
+        bool clearInstanceDirOnStop = false,
+        bool clearWorkingDirOnStart = false,
+        int deleteFolderRetryCount = 5,
+        int deleteFolderInitialTimeout = 16,
+        int deleteFolderTimeoutFactor = 2,
         string locale = "",
         Platform? platform = null,
         int startupWaitTime = 30000,
         string mavenRepo = "https://repo1.maven.org/maven2")
     {
-            
+
         _pgCtlBin = "pg_ctl";
         _initDbBin = "initdb";
         _postgresBin = "postgres";
@@ -72,7 +73,7 @@ public class PgServer : IDisposable, IAsyncDisposable
 
         if (platform.HasValue)
         {
-            _platform = platform.Value;    
+            _platform = platform.Value;
         }
         else
         {
@@ -85,7 +86,7 @@ public class PgServer : IDisposable, IAsyncDisposable
         }
 
         _platform = platform.Value;
-            
+
         _architecture = Utils.GetArchitecture(_platform);
 
         _mavenRepo = mavenRepo;
@@ -125,12 +126,23 @@ public class PgServer : IDisposable, IAsyncDisposable
 
         // setup the policy for retry pertaining to downloading binary
         _downloadRetryPolicy =
-            Policy.Handle<Exception>()
-                .WaitAndRetry(new[] { TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(4) });
+            new ResiliencePipelineBuilder()
+                .AddRetry(new RetryStrategyOptions
+                {
+                    ShouldHandle = new PredicateBuilder().Handle<Exception>(),
+                    Delay = TimeSpan.FromSeconds(1),
+                    BackoffType = DelayBackoffType.Exponential,
+                    MaxRetryAttempts = 3
+                }).Build();
         //Set up the policy for retry pertaining to folder deletion.
         _deleteFoldersRetryPolicy =
-            Policy.Handle<Exception>()
-                .WaitAndRetry(deleteFolderRetryCount, retryAttempt =>TimeSpan.FromMilliseconds(deleteFolderInitialTimeout *(int) Math.Pow(deleteFolderTimeoutFactor, retryAttempt-1)));
+          new ResiliencePipelineBuilder()
+                .AddRetry(new RetryStrategyOptions
+                {
+                    ShouldHandle = new PredicateBuilder().Handle<Exception>(),
+                    DelayGenerator = (retryAttempt) => ValueTask.FromResult<TimeSpan?>(TimeSpan.FromMilliseconds(deleteFolderInitialTimeout * (int)Math.Pow(deleteFolderTimeoutFactor, retryAttempt.AttemptNumber - 1))),
+                    MaxRetryAttempts = deleteFolderRetryCount
+                }).Build();
 
         if (!string.IsNullOrEmpty(locale))
         {
@@ -176,7 +188,7 @@ public class PgServer : IDisposable, IAsyncDisposable
             throw new Exception($"Failed to download PgBinary", ex);
         }
     }
-    
+
     private async Task DownloadPgBinaryAsync()
     {
         var downloader = new DefaultPostgresBinaryDownloader(PgVersion, BinariesDir, _platform, _architecture, _mavenRepo);
@@ -198,7 +210,7 @@ public class PgServer : IDisposable, IAsyncDisposable
             _downloadRetryPolicy.Execute(pgExtensionInstance.Download);
         }
     }
-    
+
     private async Task DownloadPgExtensionsAsync()
     {
         foreach (var pgExtensionInstance in _pgExtensions.Select(extensionConfig => new PgExtension(BinariesDir, InstanceDir, extensionConfig)))
@@ -228,7 +240,7 @@ public class PgServer : IDisposable, IAsyncDisposable
         }
 
         NormalizeAttributes(directoryPath);
-        _deleteFoldersRetryPolicy.Execute(() =>Directory.Delete(directoryPath, true));
+        _deleteFoldersRetryPolicy.Execute(() => Directory.Delete(directoryPath, true));
     }
 
     private static void NormalizeAttributes(string directoryPath)
@@ -304,18 +316,18 @@ public class PgServer : IDisposable, IAsyncDisposable
     {
         if (_platform == Platform.Windows)
         {
-            return;    
+            return;
         }
 
-        Utils.RunProcess("chmod",  new List<string>
+        Utils.RunProcess("chmod", new List<string>
         {
             $"+x {Path.Combine(PgBinDir, _initDbBin)}"
         });
-        Utils.RunProcess("chmod",  new List<string>
+        Utils.RunProcess("chmod", new List<string>
         {
             $"+x {Path.Combine(PgBinDir, _pgCtlBin)}"
         });
-        Utils.RunProcess("chmod",  new List<string>
+        Utils.RunProcess("chmod", new List<string>
         {
             $"+x {Path.Combine(PgBinDir, _postgresBin)}"
         });
@@ -535,7 +547,7 @@ public class PgServer : IDisposable, IAsyncDisposable
             SetBinariesAsExecutable();
             InitDb();
             StartServer();
-        } 
+        }
         else
         {
             StartServer();
@@ -571,7 +583,7 @@ public class PgServer : IDisposable, IAsyncDisposable
             SetBinariesAsExecutable();
             InitDb();
             StartServer();
-        } 
+        }
         else
         {
             StartServer();
@@ -579,7 +591,7 @@ public class PgServer : IDisposable, IAsyncDisposable
     }
 
     public async Task StartAsync() => await StartAsync(CancellationToken.None);
-    
+
     public void Stop()
     {
         StopServer();
