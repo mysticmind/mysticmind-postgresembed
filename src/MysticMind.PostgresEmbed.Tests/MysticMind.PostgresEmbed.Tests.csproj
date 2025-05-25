@@ -16,8 +16,8 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Npgsql" Version="8.0.1" />
-    <PackageReference Include="xunit" Version="2.6.3" />
+    <PackageReference Include="Npgsql" Version="8.0.7" />
+    <PackageReference Include="xunit" Version="2.7.1" />
     <PackageReference Include="Xunit.SkippableFact" Version="1.4.13" />
   </ItemGroup>
 
