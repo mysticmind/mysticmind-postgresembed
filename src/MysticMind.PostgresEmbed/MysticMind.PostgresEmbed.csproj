@@ -4,20 +4,20 @@
     <Description>Postgres embedded server equivalent for .Net applications</Description>
     <Copyright>Copyright (C) Babu Annamalai</Copyright>
     <AssemblyTitle>MysticMind.PostgresEmbed</AssemblyTitle>
-    <VersionPrefix>4.0.0</VersionPrefix>
+    <VersionPrefix>4.1.0</VersionPrefix>
     <Authors>Babu Annamalai</Authors>
     <TargetFrameworks>net6.0;net7.0;net8.0;net9.0</TargetFrameworks>
     <AssemblyName>MysticMind.PostgresEmbed</AssemblyName>
     <PackageId>MysticMind.PostgresEmbed</PackageId>
     <PackageTags>postgres;postgresql;pg;embed;embedded;server;.net 4.6;net 4.6;net46;.net core;net core;netcore;netcore 2.0;netcore rtm</PackageTags>
     <PackageProjectUrl>https://github.com/mysticmind/mysticmind-postgresembed</PackageProjectUrl>
-    <PackageLicenseUrl>https://github.com/mysticmind/mysticmind-postgresembed/blob/master/LICENSE</PackageLicenseUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/mysticmind/mysticmind-postgresembed</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Polly.Core" Version="8.5.2" />
-    <PackageReference Include="SharpCompress" Version="0.34.2" />
+    <PackageReference Include="SharpCompress" Version="0.39.0" />
     <PackageReference Include="System.Diagnostics.Process" Version="4.3.0" />
     <PackageReference Include="System.IO.Compression.ZipFile" Version="4.3.0" />
     <PackageReference Include="System.Net.NetworkInformation" Version="4.3.0" />
