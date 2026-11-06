@@ -11,8 +11,11 @@ public sealed record PgServerOptions
     public const string DefaultMavenRepo = "https://repo1.maven.org/maven2";
 
     /// <summary>
-    /// Postgres version to run, for example <c>"17.6.0"</c>. It must be a version published at
-    /// https://mvnrepository.com/artifact/io.zonky.test.postgres/embedded-postgres-binaries-bom.
+    /// Postgres version to run: an exact version (<c>"17.6.0"</c>), or a spec resolved to the newest
+    /// matching version published for this platform when the server starts or installs: a major
+    /// (<c>"17"</c>, or <c>"9.6"</c> before Postgres 10), a minor (<c>"17.6"</c>) or <c>"latest"</c>.
+    /// Without network access, a spec falls back to the newest matching version already in
+    /// <see cref="BinariesDir"/>. See <see cref="PgVersions"/> to list the published versions.
     /// </summary>
     public required string PgVersion { get; init; }
 
@@ -64,6 +67,14 @@ public sealed record PgServerOptions
     /// <see cref="BinariesDir"/> points elsewhere.
     /// </summary>
     public bool ClearWorkingDirOnStart { get; init; }
+
+    /// <summary>
+    /// Keep the server running when this process exits without stopping it. By default the server is
+    /// killed on process exit, so test runs never leave Postgres behind; set this for a server meant to
+    /// outlive its process, such as a local development database. <see cref="PgServer.StopAsync"/> and
+    /// disposing still stop it.
+    /// </summary>
+    public bool KeepRunningAfterExit { get; init; }
 
     /// <summary>Locale passed to initdb. Defaults to <c>en_US.UTF-8</c> on Linux and macOS, and the system locale on Windows.</summary>
     public string? Locale { get; init; }

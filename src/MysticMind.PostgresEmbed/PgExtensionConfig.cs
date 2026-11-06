@@ -13,4 +13,10 @@ public sealed record PgExtensionConfig
     }
 
     public string DownloadUrl { get; }
+
+    /// <summary>
+    /// Optional SHA-256 (hex) of the archive. When set, the download is verified and a mismatch fails the
+    /// start, so a corrupted or altered archive is never installed.
+    /// </summary>
+    public string? Sha256 { get; init; }
 }

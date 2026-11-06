@@ -8,11 +8,18 @@ internal sealed class PgExtension(string binariesDir, PgExtensionConfig config)
 
     public async Task DownloadAsync(HttpClient? httpClient, ILogger logger, CancellationToken cancellationToken)
     {
-        if (File.Exists(_archivePath)) return;
+        if (!File.Exists(_archivePath))
+        {
+            await FileDownloader
+                .DownloadAsync(httpClient, config.DownloadUrl, _archivePath, logger, cancellationToken)
+                .ConfigureAwait(false);
+        }
 
-        await FileDownloader
-            .DownloadAsync(httpClient, config.DownloadUrl, _archivePath, logger, cancellationToken)
-            .ConfigureAwait(false);
+        // checked for cached archives too: they are only extracted when a new install is built
+        if (!string.IsNullOrWhiteSpace(config.Sha256))
+        {
+            FileDownloader.VerifySha256(_archivePath, config.Sha256, Path.GetFileName(_archivePath));
+        }
     }
 
     public void Extract(string installDir)
