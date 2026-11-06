@@ -122,16 +122,48 @@ public class PgServerTests
         await ExecuteScalar(server, CreateTableSql);
     }
 
+    private const string NonAsciiFolder = "文件夹 ünïcödé";
+
+    // On Windows, Postgres cannot use non-ASCII paths, so the library falls back to the
+    // path's 8.3 short name; that only exists where the volume creates short names
+    // (the system drive by default, but not e.g. the D: drive of GitHub's runners).
+    private static bool HasShortNames(string dir)
+    {
+        try
+        {
+            PathUtils.ToProcessSafePath(dir);
+            return true;
+        }
+        catch (PostgresEmbedException)
+        {
+            return false;
+        }
+    }
+
     // https://github.com/mysticmind/mysticmind-postgresembed/issues/29
     [Fact]
     public async Task supports_db_dir_with_non_ascii_characters()
     {
-        await using var server = new PgServer(Options() with
-        {
-            DbDir = CreateDir("文件夹 ünïcödé")
-        });
+        // the temp folder is on the system drive on Windows, like the paths in #29
+        var dbDir = Path.Combine(Path.GetTempPath(), "mysticmind-postgresembed-tests", NonAsciiFolder);
+        Directory.CreateDirectory(dbDir);
+        Assert.SkipUnless(HasShortNames(dbDir), "8.3 short names are disabled on the temp folder's volume");
+
+        await using var server = new PgServer(Options() with { DbDir = dbDir });
         await server.StartAsync(Ct);
         await ExecuteScalar(server, CreateTableSql);
+    }
+
+    [Fact]
+    public async Task non_ascii_db_dir_without_short_names_fails_with_a_clear_error()
+    {
+        var dbDir = CreateDir(NonAsciiFolder);
+        Assert.SkipUnless(OperatingSystem.IsWindows() && !HasShortNames(dbDir),
+            "only applies on Windows, on a volume without 8.3 short names");
+
+        await using var server = new PgServer(Options() with { DbDir = dbDir });
+        var ex = await Assert.ThrowsAsync<PostgresEmbedException>(() => server.StartAsync(Ct));
+        Assert.Contains("use an ASCII only DbDir", ex.Message);
     }
 
     [Fact]
