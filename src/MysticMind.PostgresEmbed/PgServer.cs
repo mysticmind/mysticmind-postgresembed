@@ -792,6 +792,9 @@ public sealed class PgServer : IAsyncDisposable
             var firstLine = File.ReadLines(pidFile).FirstOrDefault();
             if (!int.TryParse(firstLine, NumberStyles.Integer, CultureInfo.InvariantCulture, out var pid)) return;
 
+            // read before the kill: the server's System V segment, which a kill would leave behind
+            var segment = SharedMemory.Read(pidFile);
+
             using var postmaster = Process.GetProcessById(pid);
             postmaster.Kill(entireProcessTree: true);
 
@@ -801,6 +804,9 @@ public sealed class PgServer : IAsyncDisposable
             {
                 Thread.Sleep(50);
             }
+
+            // only once the server is gone; a clean shutdown removes the segment itself
+            if (segment is { } held && !PgInstanceStatus.IsPostgresProcess(pid)) SharedMemory.Remove(held, _logger);
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException or System.ComponentModel.Win32Exception)
         {

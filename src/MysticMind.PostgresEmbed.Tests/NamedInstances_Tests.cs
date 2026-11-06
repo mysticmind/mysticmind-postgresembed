@@ -203,6 +203,24 @@ public sealed class NamedInstancesTests : IDisposable
     }
 
     [Fact]
+    public async Task kill_releases_the_servers_shared_memory()
+    {
+        // Linux and macOS: a killed server's System V segment outlives it unless removed, and macOS
+        // allows only 32 on the whole machine
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Windows uses no System V shared memory");
+
+        await using var server = new PgServer(Named("kill-shm"));
+        await server.StartAsync(Ct);
+        var segment = SharedMemory.Read(Path.Combine(server.DataDir, "postmaster.pid"));
+        Assert.NotNull(segment);
+        Assert.True(SharedMemory.Exists(segment.Value.Key));
+
+        await server.KillAsync(Ct);
+
+        Assert.False(SharedMemory.Exists(segment.Value.Key));
+    }
+
+    [Fact]
     public async Task two_concurrent_starts_of_one_name_start_one_server()
     {
         var options = Named("concurrent");
