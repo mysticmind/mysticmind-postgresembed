@@ -5,6 +5,6 @@ public enum Platform
     Windows,
     Linux,
     Darwin,
-    // AlpineLinux,
-    // AlpineLiteLinux
+    /// <summary>musl based Linux distributions such as Alpine.</summary>
+    AlpineLinux
 }

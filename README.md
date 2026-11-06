@@ -1,242 +1,197 @@
 # MysticMind.PostgresEmbed _Postgres embedded database equivalent for .Net applications_ [![Build status](https://github.com/mysticmind/mysticmind-postgresembed/actions/workflows/ci.yaml/badge.svg)](https://github.com/mysticmind/mysticmind-postgresembed/actions/workflows/ci.yaml) [![NuGet Version](https://badgen.net/nuget/v/mysticmind.postgresembed)](https://www.nuget.org/packages/MysticMind.PostgresEmbed/)
 
-This is a library for running a Postgres server embedded equivalent including extensions targeting Windows, Linux and OSX (including Silicon - M1/M2) available since v3.x or above. This project also handles Postgres extensions very well with a neat way to configure and use it.
+Run a real PostgreSQL server, extensions included, from .NET code and tests on Windows, Linux (glibc and Alpine/musl) and macOS, on both x64 and arm64. No Docker and no local Postgres install required.
 
-Note that until v2.x, this library was only supporting Windows.
+By default, this library uses the minimal binaries published by [zonkyio/embedded-postgres-binaries](https://github.com/zonkyio/embedded-postgres-binaries). They are much smaller than the official downloads. A list of all available Postgres versions is here: https://mvnrepository.com/artifact/io.zonky.test.postgres/embedded-postgres-binaries-bom. Click a version to see the platforms it is published for.
 
-By default, this project uses the minimum binaries published by [zonkyio/embedded-postgres-binaries](https://github.com/zonkyio/embedded-postgres-binaries). Note that this is a minimal set of binaries which can be quickly downloaded (around 10MB) for use rather than the official downloads which are pegged at around 100MB. A list of all available versions of postgres binaries is here: https://mvnrepository.com/artifact/io.zonky.test.postgres/embedded-postgres-binaries-bom. If you click on a specific version, you can lookup the OS platforms for which packages are published.
+The library detects the OS and CPU architecture and downloads the matching binaries.
 
-Library automatically detects the OS environment and architecture to setup the library for use accordingly.
+If you have benefitted from this library and it has saved you a bunch of time, please feel free to sponsor my work!<br>
+<a href="https://github.com/sponsors/mysticmind" target="_blank"><img height="30" style="border:0px;height:36px;" src="https://img.shields.io/static/v1?label=GitHub Sponsor&message=%E2%9D%A4&logo=GitHub" border="0" alt="GitHub Sponsor" /></a>
 
-If you have benefitted from this library and has saved you a bunch of time, please feel free to sponsor my work!<br>
-<a href="https://github.com/sponsors/mysticmind" target="_blank"><img height="30" style="border:0px;height:36px;" src="https://img.shields.io/static/v1?label=GitHub Sponsor&message=%E2%9D%A4&logo=GitHub" border="0" alt="GitHub Sponsor" /></a> <!--<a href="https://ko-fi.com/babuannamalai" target="_blank"><img height="36" style="border:0px;height:36px;" src="https://cdn.ko-fi.com/cdn/kofi4.png?v=3" border="0" alt="Buy Me a Coffee at ko-fi.com" /></a> <a href="https://www.buymeacoffee.com/babuannamalai" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="36" width="174"></a>-->
+## Requirements
+
+- .NET 8 or later (the package targets .NET 8, 9, 10 and 11)
+- Windows x64, Linux x64/arm64 (glibc or musl), macOS x64/arm64
+- Postgres refuses to run as root/Administrator, so run your tests as a regular user (this matters in Docker containers)
 
 ## Usage
-Install the package from Nuget using `Install-Package MysticMind.PostgresEmbed` or clone the repository and build it.
 
-### Example of using Postgres binary
-```csharp
-// using Postgres 15.3.0 with a using block
-using (var server = new MysticMind.PostgresEmbed.PgServer("15.3.0"))
-{
-    // start the server
-    server.Start();
-    
-    // using Npgsql to connect the server
-    string connStr = $"Server=localhost;Port={server.PgPort};User Id=postgres;Password=test;Database=postgres";
-    
-    var conn = new Npgsql.NpgsqlConnection(connStr);
-    
-    var cmd =
-        new Npgsql.NpgsqlCommand(
-            "CREATE TABLE table1(ID CHAR(256) CONSTRAINT id PRIMARY KEY, Title CHAR)",
-            conn);
+Install the package from NuGet:
 
-    conn.Open();
-    cmd.ExecuteNonQuery();
-    conn.Close();
-}
+```
+dotnet add package MysticMind.PostgresEmbed
 ```
 
-### Example of using Postgres binary with StartAsync
-```csharp
-// using Postgres 15.3.0 with a using block
-using (var server = new MysticMind.PostgresEmbed.PgServer("15.3.0"))
-{
-    // start the server
-    await server.StartAsync();
-    
-    // using Npgsql to connect the server
-    string connStr = $"Server=localhost;Port={server.PgPort};User Id=postgres;Password=test;Database=postgres";
-    
-    var conn = new Npgsql.NpgsqlConnection(connStr);
-    
-    var cmd =
-        new Npgsql.NpgsqlCommand(
-            "CREATE TABLE table1(ID CHAR(256) CONSTRAINT id PRIMARY KEY, Title CHAR)",
-            conn);
+### Start a server
 
-    await conn.OpenAsync();
-    await cmd.ExecuteNonQueryAsync();
-    await conn.CloseAsync();
-}
+```csharp
+await using var server = new PgServer("17.6.0");
+await server.StartAsync();
+
+// trust authentication is used, so no password is needed
+await using var conn = new NpgsqlConnection(server.ConnectionString);
+await conn.OpenAsync();
+
+await using var cmd = new NpgsqlCommand("CREATE TABLE table1(id int PRIMARY KEY, title text)", conn);
+await cmd.ExecuteNonQueryAsync();
 ```
 
+Disposing the server stops it. You can also call `StopAsync()` yourself.
 
-### Example of using Postgres and extensions
+### Options
+
+Everything else is configured with `PgServerOptions`:
+
 ```csharp
-// Example of using Postgres 15.3.0 with extension PostGIS 3.3.3
-// you can add multiple create extension sql statements to be run
-var extensions = new List<PgExtensionConfig>();
-            
-extensions.Add(new PgExtensionConfig(
-        "https://download.osgeo.org/postgis/windows/pg15/postgis-bundle-pg15-3.3.3x64.zip"));
-
-using (var server = new MysticMind.PostgresEmbed.PgServer("15.3.0", pgExtensions: extensions))
+await using var server = new PgServer(new PgServerOptions
 {
-    server.Start();
-    var connStr = string.Format(ConnStr, server.PgPort, PgUser);
-    var conn = new Npgsql.NpgsqlConnection(connStr);
-    var cmd = new Npgsql.NpgsqlCommand("CREATE EXTENSION postgis;CREATE EXTENSION fuzzystrmatch", conn);
-    conn.Open();
-    cmd.ExecuteNonQuery();
-    conn.Close(); 
-}
-```
-
-### Example of passing additional server parameters
-```csharp
-var serverParams = new Dictionary<string, string>();
-            
-// set generic query optimizer to off
-serverParams.Add("geqo", "off");
-
-// set timezone as UTC
-serverParams.Add("timezone", "UTC");
-
-// switch off synchronous commit
-serverParams.Add("synchronous_commit", "off");
-
-// set max connections
-serverParams.Add("max_connections", "300");
-
-using (var server = new MysticMind.PostgresEmbed.PgServer("15.3.0", pgServerParams: serverParams))
-{
-    server.Start();
-
-    // do operations here
-}
-```
-
-### Example of usage in unit tests (xUnit)
-
-Since download and extraction of binaries take time, it would be good strategy to setup and teardown the server for each unit tests class instance.
-
-With xUnit, you will need to create a fixture and wire it as a class fixture. See code below:
-
-```csharp
-// this example demonstrates writing an xUnit class fixture
-// implements IDisposable to help with the teardown logic.
-public class DatabaseServerFixture : IDisposable
+    PgVersion = "17.6.0",
+    Port = 5432,                    // default: a free port, see server.PgPort
+    DbDir = "/tmp/my-tests",        // default: the current directory
+    BinariesDir = "/tmp/pg-cache",  // share downloads across projects (see below)
+    ServerParams = new Dictionary<string, string>
     {
-        private static PgServer _pgServer;
-
-        public DatabaseServerFixture()
-        {
-            var pgExtensions = new List<PgExtensionConfig>();
-            pgExtensions.Add(
-                new PgExtensionConfig(
-                    "https://download.osgeo.org/postgis/windows/pg15/postgis-bundle-pg15-3.3.3x64.zip"));
-
-            _pgServer = new PgServer("15.3.0", port: 5432, pgExtensions: pgExtensions);
-            _pgServer.Start();
-            var connStr = string.Format(ConnStr, server.PgPort, PgUser);
-            var conn = new Npgsql.NpgsqlConnection(connStr);
-            var cmd = new Npgsql.NpgsqlCommand("CREATE EXTENSION postgis", conn);
-            conn.Open();
-            cmd.ExecuteNonQuery();
-            conn.Close();
-        }
-
-        public void Dispose()
-        {
-            if (_pgServer != null)
-            {
-                _pgServer.Stop();
-            }
-        }
-    }
-    
-    // wire DatabaseServerFixture fixture as a class fixture 
-    // so that it is created once for the whole class 
-    // and shared across all unit tests within the class
-    public class my_db_tests : IClassFixture<DatabaseServerFixture>
-    {
-        [Fact]
-        public void your_test()
-        {
-            // add your test code
-        }
-    }
+        ["max_connections"] = "300",
+        ["timezone"] = "UTC",
+        ["synchronous_commit"] = "off"
+    },
+    StartupTimeout = TimeSpan.FromSeconds(60),
+    Logger = loggerFactory.CreateLogger("Postgres")
+});
+await server.StartAsync();
 ```
 
-## Few gotchas
-- You can pass a port parameter while creating instance. If you don't pass one, system will use a free port to start the server. Use `server.PgPort` to fetch the port used by the embedded server
-- `postgres` is the default database created
-- `postgres` is the default user (super user) to be used for connection
-- Trust authentication is the default authentication. You can pass any password in connection string which will be ignored by the server. Since our primary motivation is to use the server for unit tests on localhost, this is pretty fine to keep it simple.
-- If you pass `DbDir` path while creating the server then it will be used as the working directory else it will use the current directory. You will find a folder named `pg_embed` within which the `binaries` and instance folders are created.
-- If you would want to clear the whole root working directory prior to start of server(clear the all the folders from prior runs), you can pass `clearWorkingDirOnStart=true` in the constuctor while creating the server. By default this value is `false`.
-- If you would want to clear the instance directory on stopping the server, you could pass `clearInstanceDirOnStop=true` in the constuctor while creating the server. By default this value is `false`.
-- If you would want to run a named instance, you can pass a guid value for `instanceId` in the constructor. This will be helpful in scenarios where you would want to rerun the same named instance already setup. In this case, if the named directory exists, system will skip the setup process and start the server. Note that `clearInstanceDirOnStop` and `clearWorkingDirOnStart` should be `false` (this is the default as well).
-- If you don't pass a `instanceId`, system will create a new instance by running the whole setup process for every server start.
+| Option | Default | Description |
+| --- | --- | --- |
+| `PgVersion` | required | Postgres version, for example `17.6.0` |
+| `PgUser` | `postgres` | Superuser created by initdb |
+| `Port` | free port | TCP port; read the actual one from `server.PgPort` |
+| `DbDir` | current directory | A `pg_embed` folder is created under it |
+| `BinariesDir` | `<DbDir>/pg_embed/binaries` | Cache of downloads and extracted installs |
+| `InstanceId` | new Guid | Pass a fixed Guid to reuse an instance and its data across runs |
+| `ClearInstanceDirOnStop` | `true` for a new instance, `false` for a named one | Delete the instance folder when the server stops |
+| `ClearWorkingDirOnStart` | `false` | Delete the `pg_embed` folder before starting |
+| `ServerParams` | none | Postgres settings, written to a config file (values may contain spaces and quotes) |
+| `Extensions` | none | Extension archives to install, see below |
+| `Locale` | `en_US.UTF-8` (system locale on Windows) | Locale passed to initdb |
+| `AddLocalUserAccessPermission` | `false` | Windows only, see [InitDb failure](#initdb-failure-while-starting-embedded-server) |
+| `StartupTimeout` / `ShutdownTimeout` | 30s / 10s | |
+| `MavenRepo` | Maven Central | Use a mirror or an internal proxy |
+| `HttpClient` | shared client | Configure proxies or custom handlers |
+| `Logger` | none | Any `Microsoft.Extensions.Logging` logger |
+| `Platform` / `Architecture` | detected | Override detection |
+
+### Extensions
+
+The library downloads and extracts extension archives into the Postgres install. Then run `CREATE EXTENSION` yourself. Pick an extension build that matches the Postgres version and platform.
+
+```csharp
+await using var server = new PgServer(new PgServerOptions
+{
+    PgVersion = "17.6.0",
+    Extensions =
+    [
+        new PgExtensionConfig("https://download.osgeo.org/postgis/windows/pg17/postgis-bundle-pg17-3.6.2x64.zip")
+    ]
+});
+await server.StartAsync();
+
+await using var conn = new NpgsqlConnection(server.ConnectionString);
+await conn.OpenAsync();
+await using var cmd = new NpgsqlCommand("CREATE EXTENSION postgis", conn);
+await cmd.ExecuteNonQueryAsync();
+```
+
+### Using it in xUnit tests
+
+Downloading and extracting binaries takes time on the first run, so share one server across the tests in a class (or a whole assembly) with a fixture:
+
+```csharp
+public sealed class DatabaseFixture : IAsyncLifetime
+{
+    public PgServer Server { get; } = new("17.6.0");
+
+    public async ValueTask InitializeAsync() => await Server.StartAsync();
+
+    public async ValueTask DisposeAsync() => await Server.DisposeAsync();
+}
+
+public class MyDbTests(DatabaseFixture db) : IClassFixture<DatabaseFixture>
+{
+    [Fact]
+    public async Task your_test()
+    {
+        await using var conn = new NpgsqlConnection(db.Server.ConnectionString);
+        // ...
+    }
+}
+```
+
+## Good to know
+
+- `postgres` is the default database and the default superuser.
+- Trust authentication is used. Any password in the connection string is ignored. The server only listens on localhost, since the main use case is local tests.
+- Each server gets an instance folder (named after `InstanceId`) under `<DbDir>/pg_embed`, holding the `data` folder and the server log (`server.LogFile`). New instances are deleted when the server stops.
+- Pass a fixed `InstanceId` to keep the data and reuse it on the next run. The instance is set up on the first run and only started afterwards.
+- If the test process exits without disposing the server, the library makes a best effort to kill the server on process exit.
 
 ## How it works
-The following steps are done when you run an embedded server:
-- Binaries of configured Postgres version and the extensions are downloaded. 
-- For Postgres binary, nupkg of the published nuget package version is downloaded and the binary zip file is extracted from it
-- For Postgres extensions, file is downloaded from the configured url. You have to choose the right version of extension compatible with the Postgres version.
-- Since downloads from http endpoints can be flaky, retry logic is implemented with 3 retries for every file being downloaded.
-- Several steps are executed in order once you start the server 
-- All binaries zip files once downloaded are stored under `[specified db dir]\pg_embed\binaries` and reused on further runs.
-- Since each run of embedded server can possibly use a combination of Postgres version and extensions. Hence implemented a concept of an instance containing the extracted Postgres binary, extensions and db data. 
-- Each instance has a instance folder (guid) which contains the `pgsql` and `data` folders. Instance folder is created and removed for each embedded server setup and tear down. 
-- Binary files of Postgres and the extensions are extracted into the instance `pgsql` folder
-- InitDb is run on the `data` folder calling `initdb` in a `Process`
-- Server is started by instantiating a new process on a free port (in the range of 5500 or above) using `pg_ctl`. 
-- System will wait and check (fires a sql query using `psql` at a set  interval) if the server has been started till a defined wait timeout.
-- Create extensions sql commands configured are run to install the extensions. All sql statements are combined together and run as a single query via a new process and psql.exe
-- After using the server, system will tear down by running a fast stop Process, kill the server process and clear the instance folder.
-- Server  implements `IDisposable` to call Stop automatically within the context of a `using(..){...}` block. If using an unit test setup and teardown at the class level, you will call `Start()` and `Stop()` appropriately.
 
-## Breaking changes in v3.x
-- `PgServer` class constructor signatures have changed.
-- Lib no more uses [PostgreSql.Binaries.Lite](https://github.com/mihasic/PostgreSql.Binaries.Lite)
-- With regards to postgres extensions, end-users will need to run `create extension <extn_name>;` to install the extension. Library will only download and extract the extension based on the url provided.
+1. The zonky binaries for the version and platform are downloaded from Maven once, and cached in `BinariesDir`. Each download is retried 3 times. An unknown version fails fast with a clear error.
+2. The binaries, plus the configured extensions, are extracted once into a shared install folder in `BinariesDir`, for example `postgres-17.6.0-linux-amd64`. Every instance with the same version and extensions reuses it, so later servers start in about a second.
+3. `initdb` creates the instance `data` folder.
+4. The port and `ServerParams` are written to `pg_embed.conf`, which is included from `postgresql.conf`.
+5. `pg_ctl start -w` starts the server and waits until it accepts connections.
+6. On stop, `pg_ctl stop` runs in fast mode, falling back to immediate mode and then to killing the process.
 
-## Known Issues
-- Some test tend to fail when running all at once in Rider with the exception message: "the database system is starting up". Just rerun that specific test and it will pass.
+## Breaking changes in v5
 
-### Npgsql exception
-If you are using [Npgsql](https://github.com/npgsql), when you execute the server, you may sporadically notice the following exception
+v5 modernizes the library. Summary of what changed for callers:
 
-> Npgsql.NpgsqlException : Unable to write data to the transport connection: An existing connection was forcibly closed by the remote host.
+- **Target frameworks:** .NET 8, 9, 10 and 11. .NET 6 and 7 (out of support) are dropped.
+- **Async only:** `Start()`, `Stop()` and `Dispose()` are removed. Use `await StartAsync()`, `await StopAsync()` and `await using`. `PgServer` implements `IAsyncDisposable` only.
+- **Options object:** the long constructor is replaced by `new PgServer(pgVersion)` and `new PgServer(PgServerOptions)`. The parameters map to option properties of the same name. `startupWaitTime` (ms) is now `StartupTimeout` (`TimeSpan`), `pgServerParams` is `ServerParams`, `pgExtensions` is `Extensions`, and the `deleteFolder*` parameters are `DeleteFolderRetryCount` and `DeleteFolderInitialDelay`.
+- **Instance cleanup:** instances without an `InstanceId` are now deleted on stop by default. Set `ClearInstanceDirOnStop = false` to keep them.
+- **Folder layout:** binaries now live in a shared install folder under `BinariesDir`, so `PgBinDir` points there instead of `<instance>/bin`. Existing named instances keep their data.
+- **Removed:** `PgExtensionConfig.CreateExtensionSqlList` (it was never executed). Run `CREATE EXTENSION` yourself.
+- **Errors:** failures are reported as `PostgresEmbedException`, and startup errors include the end of the server log.
+- **New:** `ConnectionString`, `IsRunning`, `LogFile`, `InstallDir`, `CancellationToken` support, logging, proxy support through `HttpClient`, Linux arm64 and Alpine support, and support for paths with spaces and non-ASCII characters.
 
-Refer https://github.com/npgsql/npgsql/issues/939 to know details. Resolution is to use `Pooling=false` in connection string.
+## Known issues
 
 ### InitDb failure while starting embedded server
 
-> fixing permissions on existing directory ./pg_embed/aa60c634-fa20-4fa8-b4fc-a43a3b08aa99/data ... initdb: could not change permissions of directory "./pg_embed/aa60c634-fa20-4fa8-b4fc-a43a3b08aa99/data": Permission denied
+> initdb: could not change permissions of directory "./pg_embed/aa60c634-fa20-4fa8-b4fc-a43a3b08aa99/data": Permission denied
 
-All processes run from within the embedded server runs under local account. Postgres expects that the parent folder of the data directory has full access permission for the local account.
-
-The fix is to pass a flag `addLocalUserAccessPermission` as `true` and the system will attempt to add full access before the InitDb step as below for the case of Windows:
+All Postgres processes run under the current account, and Postgres needs full access to the parent folder of the data directory. On Windows, set `AddLocalUserAccessPermission = true`. The library then runs the following before initdb:
 
 ```
-icacls.exe c:\pg_embed\aa60c634-fa20-4fa8-b4fc-a43a3b08aa99 /t /grant:r <user>:(OI)(OC)F
+icacls.exe <instance folder> /t /grant:r <user>:(OI)(CI)F
 ```
 
-For the case of *nix, all the binaries in bin folder are set to `755` by the library to execute.
+The account needs the right to change folder permissions. You usually only need this on CI agents.
+
+### Non-ASCII paths on Windows
+
+Postgres on Windows cannot use folder paths with characters outside the system code page, such as Chinese folder names. The library works around this by handing Postgres the 8.3 short form of the path, which is ASCII only. Short names are on by default for the system drive, but are often turned off on other drives.
+
+Without them, startup stops before downloading anything, with an error that lists the problem characters and the two ways out:
+
+- Set `DbDir` (or `BinariesDir`, whichever the error names) to a folder whose full path is ASCII only, such as `C:\pg-embed`.
+- Turn on short names for that drive as an administrator (`fsutil 8dot3name set D: 0`), then delete and recreate the folder. Folders created while short names were off never get one.
 
 ### InitDb failure with a large negative number
 
-If you are seeing failures with `initdb` with a large negative number then it could be a dependency library issue for Postgres itself, you would need to install [Visual C++ Redistributable Packages for Visual Studio 2013](https://www.microsoft.com/en-us/download/details.aspx?id=40784) to make `MSVCR120.dll` available for Postgres to use.
-
-Note:
-1. The local account should have rights to change folder permissions otherwise the operation will result in an exception.
-2. You may not face this issue in development environments.
-3. This step was required to be enabled for Appveyor CI builds to succeed.
+If `initdb` fails on Windows with a large negative exit code, install the latest [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist).
 
 ## Acknowledgements
-- This project uses the minimal Postgres binaries published via [zonkyio/embedded-postgres-binaries](https://github.com/zonkyio/embedded-postgres-binaries).
 
-- Looked at projects [Yandex Embedded PostgresSQL](https://github.com/yandex-qatools/postgresql-embedded) and [OpenTable Embedded PostgreSQL Component](https://github.com/opentable/otj-pg-embedded) while brainstorming the implementation.
+- This project uses the minimal Postgres binaries published by [zonkyio/embedded-postgres-binaries](https://github.com/zonkyio/embedded-postgres-binaries).
+- [Yandex Embedded PostgreSQL](https://github.com/yandex-qatools/postgresql-embedded) and [OpenTable Embedded PostgreSQL Component](https://github.com/opentable/otj-pg-embedded) were useful references while designing the implementation.
 
-Note that the above projects had only dealt with Postgres binary and none had options to deal with the Postgres extensions.
- 
 ## License
-MysticMind.PostgresEmbed is licensed under [MIT License](http://www.opensource.org/licenses/mit-license.php). Refer to [License file](https://github.com/mysticmind/mysticmind-postgresembed/blob/master/LICENSE) for more information.
+
+MysticMind.PostgresEmbed is licensed under the [MIT License](http://www.opensource.org/licenses/mit-license.php). Refer to the [License file](https://github.com/mysticmind/mysticmind-postgresembed/blob/master/LICENSE) for more information.
 
 Copyright © 2023 Babu Annamalai
-
-
