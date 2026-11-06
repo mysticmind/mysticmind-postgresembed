@@ -39,6 +39,40 @@ await cmd.ExecuteNonQueryAsync();
 
 Disposing the server stops it. You can also call `StopAsync()` yourself.
 
+### Choosing a version
+
+`PgVersion` takes an exact version or a spec that resolves to the newest matching version published for your platform:
+
+```csharp
+new PgServer("17.6.0");  // exactly this version
+new PgServer("17");      // newest 17.x
+new PgServer("17.6");    // newest 17.6.x
+new PgServer("latest");  // newest of all
+```
+
+A spec is resolved when the server starts (`server.PgVersion` then holds the exact version). Without network access, it falls back to the newest matching version already downloaded. To see what is published:
+
+```csharp
+IReadOnlyList<string> versions = await PgVersions.GetAvailableAsync();   // for this platform, oldest first
+```
+
+### Warming the cache, for example in CI
+
+`InstallAsync()` downloads and extracts the binaries (and configured extensions) without creating an instance or starting a server. Run it in its own CI step, cached between runs, so the first test does not pay for the download:
+
+```csharp
+await new PgServer(new PgServerOptions { PgVersion = "17", BinariesDir = "/ci-cache/pg" }).InstallAsync();
+```
+
+### Available extensions
+
+`GetAvailableExtensionsAsync()` lists everything `CREATE EXTENSION` can use in that install: the extensions bundled with Postgres plus any you configured. It reads the install folder, so the server does not need to be running:
+
+```csharp
+foreach (var ext in await server.GetAvailableExtensionsAsync())
+    Console.WriteLine($"{ext.Name} {ext.DefaultVersion}: {ext.Comment}");
+```
+
 ### Options
 
 Everything else is configured with `PgServerOptions`:
@@ -64,7 +98,7 @@ await server.StartAsync();
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `PgVersion` | required | Postgres version, for example `17.6.0` |
+| `PgVersion` | required | Exact version (`17.6.0`) or a spec (`17`, `17.6`, `latest`), see [Choosing a version](#choosing-a-version) |
 | `PgUser` | `postgres` | Superuser created by initdb |
 | `Port` | free port | TCP port; read the actual one from `server.PgPort` |
 | `DbDir` | current directory | A `pg_embed` folder is created under it |
@@ -72,6 +106,7 @@ await server.StartAsync();
 | `InstanceId` | new Guid | Pass a fixed Guid to reuse an instance and its data across runs |
 | `ClearInstanceDirOnStop` | `true` for a new instance, `false` for a named one | Delete the instance folder when the server stops |
 | `ClearWorkingDirOnStart` | `false` | Delete the `pg_embed` folder before starting |
+| `KeepRunningAfterExit` | `false` | Keep the server running when the process exits without stopping it (by default it is killed, so tests never leave Postgres behind) |
 | `ServerParams` | none | Postgres settings, written to a config file (values may contain spaces and quotes) |
 | `Extensions` | none | Extension archives to install, see below |
 | `Locale` | `en_US.UTF-8` (system locale on Windows) | Locale passed to initdb |
@@ -108,6 +143,12 @@ await using var cmd = new NpgsqlCommand("CREATE EXTENSION postgis", conn);
 await cmd.ExecuteNonQueryAsync();
 ```
 
+To make sure the archive is exactly the one you expect, give its SHA-256. A mismatch fails the start and the archive is not installed:
+
+```csharp
+new PgExtensionConfig("https://example.com/my-extension.zip") { Sha256 = "9f86d081884c7d65..." }
+```
+
 ### Using it in xUnit tests
 
 Downloading and extracting binaries takes time on the first run, so share one server across the tests in a class (or a whole assembly) with a fixture. This is xUnit v3, where `IAsyncLifetime` returns `ValueTask`; with xUnit v2, return `Task` from both methods instead:
@@ -138,12 +179,12 @@ public class MyDbTests(DatabaseFixture db) : IClassFixture<DatabaseFixture>
 - `postgres` is the default database and the default superuser.
 - Trust authentication is used. Any password in the connection string is ignored. The server only listens on localhost, since the main use case is local tests.
 - Each server gets an instance folder (named after `InstanceId`) under `<DbDir>/pg_embed`, holding the `data` folder and the server log (`server.LogFile`). New instances are deleted when the server stops.
-- Pass a fixed `InstanceId` to keep the data and reuse it on the next run. The instance is set up on the first run and only started afterwards.
+- Pass a fixed `InstanceId` to keep the data and reuse it on the next run. The instance is set up on the first run and only started afterwards. Pin at least the major version for such an instance (`17`, not `latest`): Postgres cannot open data created by a different major version.
 - If the test process exits without disposing the server, the library makes a best effort to kill the server on process exit.
 
 ## How it works
 
-1. The zonky binaries for the version and platform are downloaded from Maven once, and cached in `BinariesDir`. Each download is retried 3 times. An unknown version fails fast with a clear error.
+1. A version spec such as `17` is resolved against the versions published for the platform. The zonky binaries for that version are downloaded from Maven once, checked against the SHA-256 Maven publishes next to them, and cached in `BinariesDir`. Each download is retried 3 times. An unknown version fails fast with a clear error.
 2. The binaries, plus the configured extensions, are extracted once into a shared install folder in `BinariesDir`, for example `postgres-17.6.0-linux-amd64`. Every instance with the same version and extensions reuses it, so later servers start in about a second.
 3. `initdb` creates the instance `data` folder.
 4. The port and `ServerParams` are written to `pg_embed.conf`, which is included from `postgresql.conf`.

@@ -5,7 +5,30 @@ namespace MysticMind.PostgresEmbed;
 
 internal static class FileDownloader
 {
-    private static readonly HttpClient SharedClient = new() { Timeout = TimeSpan.FromMinutes(10) };
+    internal static readonly HttpClient SharedClient = new() { Timeout = TimeSpan.FromMinutes(10) };
+
+    /// <summary>
+    /// Checks <paramref name="path"/> against an expected SHA-256 (hex, case-insensitive; anything after the
+    /// first whitespace, such as a file name, is ignored). On a mismatch the file is deleted, so a bad
+    /// download is never reused, and a <see cref="PostgresEmbedException"/> is thrown.
+    /// </summary>
+    public static void VerifySha256(string path, string expected, string description)
+    {
+        var expectedHex = expected.Trim().Split((char[]?)null, 2, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
+        string actualHex;
+        using (var stream = File.OpenRead(path))
+        {
+            actualHex = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(stream));
+        }
+
+        if (!string.Equals(actualHex, expectedHex, StringComparison.OrdinalIgnoreCase))
+        {
+            TryDelete(path);
+            throw new PostgresEmbedException(
+                $"Checksum mismatch for {description}: expected SHA-256 {expectedHex.ToLowerInvariant()}, " +
+                $"got {actualHex.ToLowerInvariant()}. The download was deleted; it was corrupted or altered in transit.");
+        }
+    }
 
     /// <summary>
     /// Downloads <paramref name="url"/> to <paramref name="destinationPath"/>. The file is written to a

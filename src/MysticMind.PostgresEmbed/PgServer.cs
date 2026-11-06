@@ -36,6 +36,10 @@ public sealed class PgServer : IAsyncDisposable
     private bool _isRunning;
     private bool _disposed;
 
+    // PgVersion as given ("17", "latest", "17.6.0"), and the exact version it resolved to
+    private readonly string _requestedVersion;
+    private string? _resolvedVersion;
+
     /// <summary>Creates a server for <paramref name="pgVersion"/> with default options.</summary>
     public PgServer(string pgVersion) : this(new PgServerOptions { PgVersion = pgVersion })
     {
@@ -52,7 +56,9 @@ public sealed class PgServer : IAsyncDisposable
         _architecture = options.Architecture ?? PlatformInfo.DetectArchitecture(_platform);
         _clearInstanceDirOnStop = options.ClearInstanceDirOnStop ?? options.InstanceId is null;
 
-        PgVersion = options.PgVersion;
+        _requestedVersion = options.PgVersion.Trim();
+        if (PgVersions.IsExact(_requestedVersion)) _resolvedVersion = _requestedVersion;
+
         PgUser = string.IsNullOrWhiteSpace(options.PgUser) ? "postgres" : options.PgUser;
         PgPort = options.Port == 0 ? PortFinder.GetFreePort() : options.Port;
         Locale = string.IsNullOrWhiteSpace(options.Locale)
@@ -65,7 +71,6 @@ public sealed class PgServer : IAsyncDisposable
             ? Path.Combine(DbDir, "binaries")
             : Path.GetFullPath(options.BinariesDir);
         InstanceDir = Path.Combine(DbDir, instanceId.ToString());
-        InstallDir = Path.Combine(BinariesDir, InstallFolderName(options, _platform, _architecture));
         _processInstanceDir = InstanceDir;
         _processInstallDir = InstallDir;
 
@@ -92,7 +97,11 @@ public sealed class PgServer : IAsyncDisposable
             .Build();
     }
 
-    public string PgVersion { get; }
+    /// <summary>
+    /// The exact Postgres version. For a spec such as <c>"17"</c> or <c>"latest"</c>, this is the spec until
+    /// <see cref="StartAsync"/> or <see cref="InstallAsync"/> resolves it, and the resolved version after.
+    /// </summary>
+    public string PgVersion => _resolvedVersion ?? _requestedVersion;
 
     public string PgUser { get; }
 
@@ -110,9 +119,10 @@ public sealed class PgServer : IAsyncDisposable
 
     /// <summary>
     /// Extracted Postgres install (binaries plus configured extensions) used by this server. It is shared,
-    /// read only, by every instance with the same version, platform and extensions.
+    /// read only, by every instance with the same version, platform and extensions. Final once
+    /// <see cref="PgVersion"/> is resolved.
     /// </summary>
-    public string InstallDir { get; }
+    public string InstallDir => Path.Combine(BinariesDir, InstallFolderName(PgVersion));
 
     /// <summary>Instance folder holding the data directory and the server log.</summary>
     public string InstanceDir { get; }
@@ -157,23 +167,12 @@ public sealed class PgServer : IAsyncDisposable
                 DeleteDirectory(DbDir);
             }
 
-            Directory.CreateDirectory(BinariesDir);
+            // Check before downloading anything that Postgres can use the instance folder (non-ASCII
+            // paths on Windows, issue #29); EnsureInstalledAsync does the same for the binaries folder.
             Directory.CreateDirectory(InstanceDir);
-
-            // Check before downloading anything that Postgres can use these folders (non-ASCII paths on
-            // Windows, issue #29). The install folder's own name is always ASCII, so resolving its parent
-            // is enough, and the parent exists before the install does.
             _processInstanceDir = PathUtils.ToProcessSafePath(InstanceDir, nameof(PgServerOptions.DbDir));
-            _processInstallDir = Path.Combine(
-                PathUtils.ToProcessSafePath(BinariesDir, string.IsNullOrWhiteSpace(_options.BinariesDir)
-                    ? nameof(PgServerOptions.DbDir)
-                    : nameof(PgServerOptions.BinariesDir)),
-                Path.GetFileName(InstallDir));
 
-            if (!File.Exists(Path.Combine(PgBinDir, ExecutableName("pg_ctl"))))
-            {
-                await InstallBinariesAsync(cancellationToken).ConfigureAwait(false);
-            }
+            await EnsureInstalledAsync(cancellationToken).ConfigureAwait(false);
 
             if (_options.AddLocalUserAccessPermission)
             {
@@ -189,7 +188,11 @@ public sealed class PgServer : IAsyncDisposable
             await StartServerAsync(cancellationToken).ConfigureAwait(false);
 
             _isRunning = true;
-            AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
+            if (!_options.KeepRunningAfterExit)
+            {
+                AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
+            }
+
             _logger.LogInformation("Postgres {Version} is running on port {Port} ({InstanceDir})", PgVersion, PgPort, InstanceDir);
         }
         finally
@@ -235,6 +238,125 @@ public sealed class PgServer : IAsyncDisposable
         await StopAsync().ConfigureAwait(false);
         _disposed = true;
         _lifecycleLock.Dispose();
+    }
+
+    /// <summary>
+    /// Resolves <see cref="PgVersion"/>, then downloads and extracts the binaries and configured extensions
+    /// into <see cref="InstallDir"/> when they are not there yet, without creating an instance or starting a
+    /// server. Use it to warm the cache ahead of tests, for example as a separate CI step.
+    /// </summary>
+    public async Task InstallAsync(CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        await _lifecycleLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await EnsureInstalledAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _lifecycleLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// The extensions available to <c>CREATE EXTENSION</c> in this server's install: the ones bundled with
+    /// Postgres plus any configured <see cref="PgServerOptions.Extensions"/>. Read from the install folder,
+    /// installing first when needed; the server does not have to be running.
+    /// </summary>
+    public async Task<IReadOnlyList<PgAvailableExtension>> GetAvailableExtensionsAsync(CancellationToken cancellationToken = default)
+    {
+        await InstallAsync(cancellationToken).ConfigureAwait(false);
+        return PgAvailableExtension.ReadFrom(InstallDir);
+    }
+
+    private async Task EnsureInstalledAsync(CancellationToken cancellationToken)
+    {
+        // Check before downloading anything that Postgres can use the binaries folder (issue #29). The
+        // install folder's own name is always ASCII, so checking its parent is enough.
+        Directory.CreateDirectory(BinariesDir);
+        var processBinariesDir = PathUtils.ToProcessSafePath(BinariesDir,
+            string.IsNullOrWhiteSpace(_options.BinariesDir) ? nameof(PgServerOptions.DbDir) : nameof(PgServerOptions.BinariesDir));
+
+        await ResolveVersionAsync(cancellationToken).ConfigureAwait(false);
+        _processInstallDir = Path.Combine(processBinariesDir, Path.GetFileName(InstallDir));
+
+        if (!File.Exists(Path.Combine(PgBinDir, ExecutableName("pg_ctl"))))
+        {
+            await InstallBinariesAsync(cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    // Resolves a spec such as "17" or "latest" against the versions published for this platform, or,
+    // when they cannot be fetched, against the versions already in BinariesDir.
+    private async Task ResolveVersionAsync(CancellationToken cancellationToken)
+    {
+        if (_resolvedVersion is not null) return;
+
+        var artifact = PlatformInfo.ArtifactSuffix(_platform, _architecture);
+        IReadOnlyList<string> available;
+        try
+        {
+            available = await PgVersions
+                .GetAvailableAsync(_platform, _architecture, _options.MavenRepo, _options.HttpClient, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex) when ((ex is HttpRequestException or TaskCanceledException or System.Xml.XmlException)
+                                   && !cancellationToken.IsCancellationRequested)
+        {
+            var fallback = PgVersions.Match(_requestedVersion, CachedVersions(artifact));
+            if (fallback is null)
+            {
+                throw new PostgresEmbedException(
+                    $"Could not look up the Postgres versions published for {artifact} to resolve '{_requestedVersion}', " +
+                    $"and no matching version is cached in '{BinariesDir}'. Use an exact version such as \"17.6.0\" " +
+                    "or check network access.", ex);
+            }
+
+            _logger.LogWarning(ex, "Could not look up published Postgres versions; using {Version} from {BinariesDir}",
+                fallback, BinariesDir);
+            _resolvedVersion = fallback;
+            return;
+        }
+
+        _resolvedVersion = PgVersions.Match(_requestedVersion, available)
+            ?? throw new PostgresEmbedException(
+                $"No Postgres version matching '{_requestedVersion}' is published for {artifact}. " +
+                $"Available majors: {PgVersions.DescribeMajors(available)}.");
+
+        _logger.LogInformation("Resolved Postgres version '{Spec}' to {Version}", _requestedVersion, _resolvedVersion);
+    }
+
+    // Versions present in BinariesDir for this platform: extracted installs, cached archives and jars
+    private IEnumerable<string> CachedVersions(string artifact)
+    {
+        if (!Directory.Exists(BinariesDir)) yield break;
+
+        foreach (var path in Directory.EnumerateFileSystemEntries(BinariesDir))
+        {
+            var name = Path.GetFileName(path);
+            string? version = null;
+
+            // postgres-<version>-<artifact>[-ext-<hash>], an extracted install
+            if (name.StartsWith("postgres-", StringComparison.Ordinal) && Directory.Exists(path))
+            {
+                var marker = name.IndexOf("-" + artifact, StringComparison.Ordinal);
+                var rest = marker > 0 ? name[(marker + artifact.Length + 1)..] : null;
+                if (rest is "" || rest?.StartsWith("-ext-", StringComparison.Ordinal) == true)
+                {
+                    version = name["postgres-".Length..marker];
+                }
+            }
+            // embedded-postgres-binaries-<artifact>-<version>.txz or .jar, a cached download
+            else if (name.StartsWith($"embedded-postgres-binaries-{artifact}-", StringComparison.Ordinal)
+                     && (name.EndsWith(".txz", StringComparison.Ordinal) || name.EndsWith(".jar", StringComparison.Ordinal)))
+            {
+                version = Path.GetFileNameWithoutExtension(name)[$"embedded-postgres-binaries-{artifact}-".Length..];
+            }
+
+            if (version is not null && PgVersionNumber.TryParse(version, out _)) yield return version;
+        }
     }
 
     private async Task InstallBinariesAsync(CancellationToken cancellationToken)
@@ -311,12 +433,12 @@ public sealed class PgServer : IAsyncDisposable
     }
 
     // for example "postgres-18.6.0-darwin-arm64v8", plus a hash of the extension urls when there are any
-    private static string InstallFolderName(PgServerOptions options, Platform platform, Architecture architecture)
+    private string InstallFolderName(string version)
     {
-        var name = $"postgres-{options.PgVersion}-{PlatformInfo.ArtifactSuffix(platform, architecture)}";
-        if (options.Extensions.Count == 0) return name;
+        var name = $"postgres-{version}-{PlatformInfo.ArtifactSuffix(_platform, _architecture)}";
+        if (_options.Extensions.Count == 0) return name;
 
-        var urls = string.Join('\n', options.Extensions.Select(e => e.DownloadUrl));
+        var urls = string.Join('\n', _options.Extensions.Select(e => e.DownloadUrl));
         var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(urls)));
         return $"{name}-ext-{hash[..12].ToLowerInvariant()}";
     }

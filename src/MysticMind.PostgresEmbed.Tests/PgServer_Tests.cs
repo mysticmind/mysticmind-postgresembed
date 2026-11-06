@@ -1,4 +1,5 @@
-﻿using Npgsql;
+﻿using System.Net;
+using Npgsql;
 
 namespace MysticMind.PostgresEmbed.Tests;
 
@@ -237,5 +238,120 @@ public class PgServerTests
 
         await ExecuteScalar(server, "CREATE EXTENSION postgis; CREATE EXTENSION fuzzystrmatch");
         Assert.NotNull(await ExecuteScalar(server, "SELECT postgis_version()"));
+    }
+
+    [Fact]
+    public async Task a_major_version_resolves_to_the_newest_published_and_runs()
+    {
+        await using var server = new PgServer(Options() with { PgVersion = "18" });
+        Assert.Equal("18", server.PgVersion);
+
+        await server.StartAsync(Ct);
+
+        Assert.Matches(@"^18\.\d+\.\d+", server.PgVersion);
+        Assert.StartsWith("PostgreSQL 18.", (string?)await ExecuteScalar(server, "SELECT version()"));
+    }
+
+    [Fact]
+    public async Task without_network_a_spec_falls_back_to_a_cached_version()
+    {
+        await new PgServer(Options()).InstallAsync(Ct); // makes sure PgVersion (18.6.0) is cached
+
+        var offline = new FakeHttpHandler().On("", () => throw new HttpRequestException("network is down"));
+        await using var server = new PgServer(Options() with { PgVersion = "18", HttpClient = new HttpClient(offline) });
+        await server.InstallAsync(Ct);
+
+        Assert.Matches(@"^18\.\d+\.\d+", server.PgVersion);
+        Assert.True(Directory.Exists(server.InstallDir));
+    }
+
+    [Fact]
+    public async Task an_unpublished_major_fails_with_the_available_majors()
+    {
+        await using var server = new PgServer(Options() with { PgVersion = "99" });
+
+        var ex = await Assert.ThrowsAsync<PostgresEmbedException>(() => server.InstallAsync(Ct));
+
+        Assert.Contains("No Postgres version matching '99'", ex.Message);
+        Assert.Contains("Available majors:", ex.Message);
+    }
+
+    [Fact]
+    public async Task install_downloads_and_extracts_without_creating_an_instance()
+    {
+        await using var server = new PgServer(Options() with { DbDir = CreateDir("install-only-" + Guid.NewGuid().ToString("N")) });
+
+        await server.InstallAsync(Ct);
+
+        Assert.Contains(Directory.EnumerateFiles(server.PgBinDir), f => Path.GetFileNameWithoutExtension(f) == "pg_ctl");
+        Assert.False(Directory.Exists(server.InstanceDir));
+        Assert.False(server.IsRunning);
+    }
+
+    [Fact]
+    public async Task available_extensions_are_read_from_the_install()
+    {
+        await using var server = new PgServer(Options());
+
+        var extensions = await server.GetAvailableExtensionsAsync(Ct);
+
+        var pgcrypto = Assert.Single(extensions, e => e.Name == "pgcrypto");
+        Assert.False(string.IsNullOrEmpty(pgcrypto.DefaultVersion));
+        Assert.False(string.IsNullOrEmpty(pgcrypto.Comment));
+        Assert.Contains("cube", Assert.Single(extensions, e => e.Name == "earthdistance").Requires);
+        Assert.Contains(extensions, e => e.Name == "pg_trgm");
+        Assert.False(server.IsRunning);
+    }
+
+    [Fact]
+    public async Task a_binaries_download_that_does_not_match_its_published_checksum_is_rejected()
+    {
+        var binariesDir = CreateDir("checksum-" + Guid.NewGuid().ToString("N"));
+        var maven = new FakeHttpHandler()
+            .On(".jar", HttpStatusCode.OK, "not the real jar")
+            .On(".jar.sha256", HttpStatusCode.OK, new string('0', 64));
+
+        await using var server = new PgServer(Options() with
+        {
+            BinariesDir = binariesDir,
+            MavenRepo = "https://repo.example/maven2",
+            HttpClient = new HttpClient(maven)
+        });
+
+        var ex = await Assert.ThrowsAsync<PostgresEmbedException>(() => server.InstallAsync(Ct));
+
+        Assert.Contains("Checksum mismatch", ex.Message);
+        Assert.Empty(Directory.EnumerateFiles(binariesDir, "*.jar")); // the bad download is not kept
+    }
+
+    [Fact]
+    public async Task an_extension_that_does_not_match_its_configured_checksum_is_rejected()
+    {
+        var download = new FakeHttpHandler().On("/demo-extension.zip", HttpStatusCode.OK, "pretend zip");
+
+        await using var server = new PgServer(Options() with
+        {
+            DbDir = CreateDir("ext-checksum-" + Guid.NewGuid().ToString("N")),
+            HttpClient = new HttpClient(download),
+            Extensions = [new PgExtensionConfig("https://ext.example/demo-extension.zip") { Sha256 = new string('a', 64) }]
+        });
+
+        var ex = await Assert.ThrowsAsync<PostgresEmbedException>(() => server.InstallAsync(Ct));
+
+        Assert.Contains("Checksum mismatch for demo-extension.zip", ex.Message);
+        Assert.False(Directory.Exists(server.InstallDir));
+    }
+
+    [Fact]
+    public async Task keep_running_after_exit_still_stops_on_dispose()
+    {
+        PgServer server;
+        await using (server = new PgServer(Options() with { KeepRunningAfterExit = true }))
+        {
+            await server.StartAsync(Ct);
+            Assert.True(server.IsRunning);
+        }
+
+        Assert.False(server.IsRunning);
     }
 }
