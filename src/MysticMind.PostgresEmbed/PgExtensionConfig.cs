@@ -1,21 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
+﻿namespace MysticMind.PostgresEmbed;
 
-namespace MysticMind.PostgresEmbed;
-
-public class PgExtensionConfig
+/// <summary>
+/// An extension archive (zip) to download and extract into the Postgres instance. After the server
+/// starts, run <c>CREATE EXTENSION ...</c> yourself to install it.
+/// </summary>
+public sealed record PgExtensionConfig
 {
     public PgExtensionConfig(string downloadUrl)
     {
-        if (string.IsNullOrEmpty(downloadUrl))
-        {
-            throw new ArgumentException("downloadUrl is required");
-        }
-
+        ArgumentException.ThrowIfNullOrWhiteSpace(downloadUrl);
         DownloadUrl = downloadUrl;
     }
-        
-    public string DownloadUrl { get; private set; }
 
-    public List<string> CreateExtensionSqlList { get; } = new List<string>();
+    public string DownloadUrl { get; }
 }
