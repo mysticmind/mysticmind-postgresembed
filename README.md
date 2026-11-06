@@ -174,7 +174,12 @@ The account needs the right to change folder permissions. You usually only need 
 
 ### Non-ASCII paths on Windows
 
-Postgres on Windows cannot use folder paths with characters outside the system code page, such as Chinese folder names. The library works around this by using the 8.3 short form of the path. If 8.3 names are disabled on the volume, startup fails with a clear error; use an ASCII only `DbDir` in that case.
+Postgres on Windows cannot use folder paths with characters outside the system code page, such as Chinese folder names. The library works around this by handing Postgres the 8.3 short form of the path, which is ASCII only. Short names are on by default for the system drive, but are often turned off on other drives.
+
+Without them, startup stops before downloading anything, with an error that lists the problem characters and the two ways out:
+
+- Set `DbDir` (or `BinariesDir`, whichever the error names) to a folder whose full path is ASCII only, such as `C:\pg-embed`.
+- Turn on short names for that drive as an administrator (`fsutil 8dot3name set D: 0`), then delete and recreate the folder. Folders created while short names were off never get one.
 
 ### InitDb failure with a large negative number
 

@@ -160,13 +160,20 @@ public sealed class PgServer : IAsyncDisposable
             Directory.CreateDirectory(BinariesDir);
             Directory.CreateDirectory(InstanceDir);
 
+            // Check before downloading anything that Postgres can use these folders (non-ASCII paths on
+            // Windows, issue #29). The install folder's own name is always ASCII, so resolving its parent
+            // is enough, and the parent exists before the install does.
+            _processInstanceDir = PathUtils.ToProcessSafePath(InstanceDir, nameof(PgServerOptions.DbDir));
+            _processInstallDir = Path.Combine(
+                PathUtils.ToProcessSafePath(BinariesDir, string.IsNullOrWhiteSpace(_options.BinariesDir)
+                    ? nameof(PgServerOptions.DbDir)
+                    : nameof(PgServerOptions.BinariesDir)),
+                Path.GetFileName(InstallDir));
+
             if (!File.Exists(Path.Combine(PgBinDir, ExecutableName("pg_ctl"))))
             {
                 await InstallBinariesAsync(cancellationToken).ConfigureAwait(false);
             }
-
-            _processInstanceDir = PathUtils.ToProcessSafePath(InstanceDir);
-            _processInstallDir = PathUtils.ToProcessSafePath(InstallDir);
 
             if (_options.AddLocalUserAccessPermission)
             {

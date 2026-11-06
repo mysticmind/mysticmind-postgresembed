@@ -131,7 +131,7 @@ public class PgServerTests
     {
         try
         {
-            PathUtils.ToProcessSafePath(dir);
+            PathUtils.ToProcessSafePath(dir, nameof(PgServerOptions.DbDir));
             return true;
         }
         catch (PostgresEmbedException)
@@ -161,9 +161,45 @@ public class PgServerTests
         Assert.SkipUnless(OperatingSystem.IsWindows() && !HasShortNames(dbDir),
             "only applies on Windows, on a volume without 8.3 short names");
 
-        await using var server = new PgServer(Options() with { DbDir = dbDir });
+        // an empty binaries folder of its own, to show the check runs before any download
+        var binariesDir = CreateDir("fail-fast-binaries-" + Guid.NewGuid().ToString("N"));
+
+        await using var server = new PgServer(Options() with { DbDir = dbDir, BinariesDir = binariesDir });
         var ex = await Assert.ThrowsAsync<PostgresEmbedException>(() => server.StartAsync(Ct));
-        Assert.Contains("use an ASCII only DbDir", ex.Message);
+
+        Assert.Contains("PgServerOptions.DbDir", ex.Message);
+        Assert.Contains("8.3 short names turned off", ex.Message);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(binariesDir));
+    }
+
+    [Fact]
+    public void non_ascii_path_error_says_what_is_wrong_and_how_to_fix_it()
+    {
+        var message = PathUtils.NonAsciiPathMessage(@"D:\a\" + NonAsciiFolder + @"\pg_embed", nameof(PgServerOptions.DbDir));
+
+        Assert.Contains(@"cannot use the folder 'D:\a\文件夹 ünïcödé\pg_embed'", message);
+        Assert.Contains("non-ASCII characters (文 件 夹 ü ï ö é)", message);
+        Assert.Contains("drive D: has 8.3 short names turned off", message);
+        Assert.Contains("Set PgServerOptions.DbDir to a folder whose full path is ASCII only", message);
+        Assert.Contains("fsutil 8dot3name set D: 0", message);
+        Assert.Contains("https://github.com/mysticmind/mysticmind-postgresembed/issues/29", message);
+    }
+
+    [Fact]
+    public void non_ascii_path_error_on_a_network_share_names_the_option_and_skips_fsutil()
+    {
+        var message = PathUtils.NonAsciiPathMessage(@"\\server\share\" + NonAsciiFolder, nameof(PgServerOptions.BinariesDir));
+
+        Assert.Contains("set PgServerOptions.BinariesDir to a folder whose full path is ASCII only", message);
+        Assert.DoesNotContain("fsutil", message);
+    }
+
+    [Fact]
+    public void non_ascii_path_error_reports_a_windows_failure_to_resolve_a_short_name()
+    {
+        var message = PathUtils.NonAsciiPathMessage(@"C:\" + NonAsciiFolder, nameof(PgServerOptions.DbDir), win32Error: 5);
+
+        Assert.Contains("Windows could not provide an ASCII-only (8.3) form of the path (Win32 error 5)", message);
     }
 
     [Fact]
