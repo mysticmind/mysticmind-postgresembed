@@ -1,6 +1,6 @@
 # MysticMind.PostgresEmbed _Postgres embedded database equivalent for .Net applications_ [![Build status](https://github.com/mysticmind/mysticmind-postgresembed/actions/workflows/ci.yaml/badge.svg)](https://github.com/mysticmind/mysticmind-postgresembed/actions/workflows/ci.yaml) [![NuGet Version](https://badgen.net/nuget/v/mysticmind.postgresembed)](https://www.nuget.org/packages/MysticMind.PostgresEmbed/)
 
-Run a real PostgreSQL server, extensions included, from .NET code and tests on Windows, Linux (glibc and Alpine/musl) and macOS, on both x64 and arm64. No Docker and no local Postgres install required.
+Run a real PostgreSQL server, extensions included, from .NET code and tests on Windows, Linux (glibc and Alpine/musl) and macOS. No Docker and no local Postgres install required.
 
 By default, this library uses the minimal binaries published by [zonkyio/embedded-postgres-binaries](https://github.com/zonkyio/embedded-postgres-binaries). They are much smaller than the official downloads. A list of all available Postgres versions is here: https://mvnrepository.com/artifact/io.zonky.test.postgres/embedded-postgres-binaries-bom. Click a version to see the platforms it is published for.
 
@@ -12,7 +12,7 @@ If you have benefitted from this library and it has saved you a bunch of time, p
 ## Requirements
 
 - .NET 8 or later (the package targets .NET 8, 9, 10 and 11)
-- Windows x64, Linux x64/arm64 (glibc or musl), macOS x64/arm64
+- Windows x64, Linux x64/arm64 (glibc or musl), macOS x64/arm64. Windows on Arm runs the x64 build under emulation.
 - Postgres refuses to run as root/Administrator, so run your tests as a regular user (this matters in Docker containers)
 
 ## Usage
@@ -78,15 +78,20 @@ await server.StartAsync();
 | `AddLocalUserAccessPermission` | `false` | Windows only, see [InitDb failure](#initdb-failure-while-starting-embedded-server) |
 | `StartupTimeout` / `ShutdownTimeout` | 30s / 10s | |
 | `MavenRepo` | Maven Central | Use a mirror or an internal proxy |
+| `DownloadRetryCount` | 3 | Retries for each download |
+| `DeleteFolderRetryCount` / `DeleteFolderInitialDelay` | 5 / 16 ms | Retries when deleting folders that are briefly locked; the delay doubles each time |
 | `HttpClient` | shared client | Configure proxies or custom handlers |
 | `Logger` | none | Any `Microsoft.Extensions.Logging` logger |
 | `Platform` / `Architecture` | detected | Override detection |
 
 ### Extensions
 
-The library downloads and extracts extension archives into the Postgres install. Then run `CREATE EXTENSION` yourself. Pick an extension build that matches the Postgres version and platform.
+The library downloads extension archives and extracts them into the Postgres install. Then run `CREATE EXTENSION` yourself.
+
+Each archive must be a **zip** built for the **same platform and Postgres major version** as the server. A folder at the top of the zip that holds `bin`, `lib` and `share` is handled. For example, the PostGIS bundle below is a Windows build for Postgres 17: it extracts on Linux or macOS too, but `CREATE EXTENSION` then fails, so choose the extension URL per platform.
 
 ```csharp
+// Windows: PostGIS bundle for Postgres 17
 await using var server = new PgServer(new PgServerOptions
 {
     PgVersion = "17.6.0",
@@ -105,7 +110,7 @@ await cmd.ExecuteNonQueryAsync();
 
 ### Using it in xUnit tests
 
-Downloading and extracting binaries takes time on the first run, so share one server across the tests in a class (or a whole assembly) with a fixture:
+Downloading and extracting binaries takes time on the first run, so share one server across the tests in a class (or a whole assembly) with a fixture. This is xUnit v3, where `IAsyncLifetime` returns `ValueTask`; with xUnit v2, return `Task` from both methods instead:
 
 ```csharp
 public sealed class DatabaseFixture : IAsyncLifetime
@@ -151,7 +156,7 @@ v5 modernizes the library. Summary of what changed for callers:
 
 - **Target frameworks:** .NET 8, 9, 10 and 11. .NET 6 and 7 (out of support) are dropped.
 - **Async only:** `Start()`, `Stop()` and `Dispose()` are removed. Use `await StartAsync()`, `await StopAsync()` and `await using`. `PgServer` implements `IAsyncDisposable` only.
-- **Options object:** the long constructor is replaced by `new PgServer(pgVersion)` and `new PgServer(PgServerOptions)`. The parameters map to option properties of the same name. `startupWaitTime` (ms) is now `StartupTimeout` (`TimeSpan`), `pgServerParams` is `ServerParams`, `pgExtensions` is `Extensions`, and the `deleteFolder*` parameters are `DeleteFolderRetryCount` and `DeleteFolderInitialDelay`.
+- **Options object:** the long constructor is replaced by `new PgServer(pgVersion)` and `new PgServer(PgServerOptions)`. The parameters map to option properties of the same name. `startupWaitTime` (ms) is now `StartupTimeout` (`TimeSpan`), `pgServerParams` is `ServerParams`, `pgExtensions` is `Extensions`, `deleteFolderRetryCount` is `DeleteFolderRetryCount`, and `deleteFolderInitialTimeout` (ms) is `DeleteFolderInitialDelay` (`TimeSpan`). `deleteFolderTimeoutFactor` is gone: the delay always doubles.
 - **Instance cleanup:** instances without an `InstanceId` are now deleted on stop by default. Set `ClearInstanceDirOnStop = false` to keep them.
 - **Folder layout:** binaries now live in a shared install folder under `BinariesDir`, so `PgBinDir` points there instead of `<instance>/bin`. Existing named instances keep their data.
 - **Removed:** `PgExtensionConfig.CreateExtensionSqlList` (it was never executed). Run `CREATE EXTENSION` yourself.
@@ -194,4 +199,4 @@ If `initdb` fails on Windows with a large negative exit code, install the latest
 
 MysticMind.PostgresEmbed is licensed under the [MIT License](http://www.opensource.org/licenses/mit-license.php). Refer to the [License file](https://github.com/mysticmind/mysticmind-postgresembed/blob/master/LICENSE) for more information.
 
-Copyright © 2023 Babu Annamalai
+Copyright © 2023-2026 Babu Annamalai
