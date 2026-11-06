@@ -64,6 +64,36 @@ IReadOnlyList<string> versions = await PgVersions.GetAvailableAsync();   // for 
 await new PgServer(new PgServerOptions { PgVersion = "17", BinariesDir = "/ci-cache/pg" }).InstallAsync();
 ```
 
+### Named instances: keep a server around and reuse it
+
+Give an instance a name to keep it, data included, and share it across runs, test projects and tools:
+
+```csharp
+await using var server = new PgServer(new PgServerOptions { PgVersion = "17", InstanceName = "app" });
+await server.StartAsync();
+```
+
+- A named instance lives in the **shared cache** (`instances/app`), so every test run, app and tool on the machine finds the same one. Pass `DbDir` to keep it somewhere else instead.
+- **If it is already running**, for example from an earlier run, another test project or the `pgembed` CLI, `StartAsync()` **attaches** to it in milliseconds instead of starting another server (`server.IsAttached`). Set `AttachIfRunning = false` to get an error instead.
+- **Only the process that started a server stops it on dispose.** A server you attached to keeps running for whoever started it. `StopAsync()` and `KillAsync()` stop it either way.
+- Two processes starting the same name at once get one server: a lock per instance makes the second attach.
+- Its data is kept when the server stops. Pin at least the major version (`"17"`, not `"latest"`): Postgres cannot open data from another major version, and the library refuses with a clear error before downloading anything.
+
+Check or control a server from anywhere, including one another process started:
+
+```csharp
+await using var app = new PgServer(new PgServerOptions { PgVersion = "17", InstanceName = "app" });
+PgInstanceStatus status = await app.GetStatusAsync();   // State, ProcessId, Port, StartedAt
+await app.StopAsync();                                   // clean shutdown
+await app.KillAsync();                                   // last resort: force-kill
+```
+
+### The shared cache
+
+The shared cache is one folder per user: `PGEMBED_CACHE_DIR` if set, otherwise `~/.cache/pgembed` on Linux (or `$XDG_CACHE_HOME/pgembed`), `~/Library/Caches/pgembed` on macOS and `%LOCALAPPDATA%\pgembed` on Windows (`PgCache.DefaultDirectory`). It holds named instances, and their binaries in `binaries`.
+
+Setting `PGEMBED_CACHE_DIR` also makes its `binaries` folder the default for **every** server, so all projects on the machine download each Postgres version once. Downloads are shared safely: when several processes need the same version at the same time, one downloads it and the others wait.
+
 ### Available extensions
 
 `GetAvailableExtensionsAsync()` lists everything `CREATE EXTENSION` can use in that install: the extensions bundled with Postgres plus any you configured. It reads the install folder, so the server does not need to be running:
@@ -102,8 +132,10 @@ await server.StartAsync();
 | `PgUser` | `postgres` | Superuser created by initdb |
 | `Port` | free port | TCP port; read the actual one from `server.PgPort` |
 | `DbDir` | current directory | A `pg_embed` folder is created under it |
-| `BinariesDir` | `<DbDir>/pg_embed/binaries` | Cache of downloads and extracted installs |
-| `InstanceId` | new Guid | Pass a fixed Guid to reuse an instance and its data across runs |
+| `BinariesDir` | `<DbDir>/pg_embed/binaries`, or `binaries` in the [shared cache](#the-shared-cache) for named instances and when `PGEMBED_CACHE_DIR` is set | Cache of downloads and extracted installs |
+| `InstanceName` | none | Keep and share an instance under a name, see [Named instances](#named-instances-keep-a-server-around-and-reuse-it) |
+| `AttachIfRunning` | `true` | Attach to the instance's server when it is already running |
+| `InstanceId` | new Guid | Older way to reuse an instance: prefer `InstanceName` (set one or the other) |
 | `ClearInstanceDirOnStop` | `true` for a new instance, `false` for a named one | Delete the instance folder when the server stops |
 | `ClearWorkingDirOnStart` | `false` | Delete the `pg_embed` folder before starting |
 | `KeepRunningAfterExit` | `false` | Keep the server running when the process exits without stopping it (by default it is killed, so tests never leave Postgres behind) |
@@ -178,8 +210,9 @@ public class MyDbTests(DatabaseFixture db) : IClassFixture<DatabaseFixture>
 
 - `postgres` is the default database and the default superuser.
 - Trust authentication is used. Any password in the connection string is ignored. The server only listens on localhost, since the main use case is local tests.
-- Each server gets an instance folder (named after `InstanceId`) under `<DbDir>/pg_embed`, holding the `data` folder and the server log (`server.LogFile`). New instances are deleted when the server stops.
-- Pass a fixed `InstanceId` to keep the data and reuse it on the next run. The instance is set up on the first run and only started afterwards. Pin at least the major version for such an instance (`17`, not `latest`): Postgres cannot open data created by a different major version.
+- Each server gets an instance folder holding the `data` folder and the server log (`server.LogFile`): under `<DbDir>/pg_embed`, named after `InstanceId`, or in the shared cache for a named instance. Unnamed instances are deleted when the server stops; named ones are kept.
+- To reuse an instance and its data, prefer `InstanceName`. A fixed `InstanceId` still works. Either way the instance is set up on the first run and only started afterwards, and should pin at least the major version.
+- `PgPlatform.Detect()` tells which platform and binaries the library uses on this machine.
 - If the test process exits without disposing the server, the library makes a best effort to kill the server on process exit.
 
 ## How it works

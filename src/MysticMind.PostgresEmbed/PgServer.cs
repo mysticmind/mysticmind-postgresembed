@@ -34,7 +34,11 @@ public sealed class PgServer : IAsyncDisposable
     private string _processInstanceDir;
     private string _processInstallDir;
     private bool _isRunning;
+    private bool _ownsServer;
     private bool _disposed;
+
+    // generous: a start can include the first download of the binaries
+    private static readonly TimeSpan LockTimeout = TimeSpan.FromMinutes(10);
 
     // PgVersion as given ("17", "latest", "17.6.0"), and the exact version it resolved to
     private readonly string _requestedVersion;
@@ -54,7 +58,23 @@ public sealed class PgServer : IAsyncDisposable
         _logger = options.Logger ?? NullLogger.Instance;
         _platform = options.Platform ?? PlatformInfo.DetectPlatform();
         _architecture = options.Architecture ?? PlatformInfo.DetectArchitecture(_platform);
-        _clearInstanceDirOnStop = options.ClearInstanceDirOnStop ?? options.InstanceId is null;
+        if (options.InstanceName is not null)
+        {
+            if (options.InstanceId is not null)
+            {
+                throw new ArgumentException("Set InstanceName or InstanceId, not both.", nameof(options));
+            }
+
+            if (!System.Text.RegularExpressions.Regex.IsMatch(options.InstanceName, "^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$"))
+            {
+                throw new ArgumentException(
+                    $"Invalid InstanceName '{options.InstanceName}': use letters, digits, '.', '_' and '-', " +
+                    "starting with a letter or digit, up to 63 characters.", nameof(options));
+            }
+        }
+
+        InstanceName = options.InstanceName;
+        _clearInstanceDirOnStop = options.ClearInstanceDirOnStop ?? (options.InstanceId is null && options.InstanceName is null);
 
         _requestedVersion = options.PgVersion.Trim();
         if (PgVersions.IsExact(_requestedVersion)) _resolvedVersion = _requestedVersion;
@@ -65,12 +85,23 @@ public sealed class PgServer : IAsyncDisposable
             ? (_platform == Platform.Windows ? null : "en_US.UTF-8")
             : options.Locale;
 
-        var instanceId = options.InstanceId ?? Guid.NewGuid();
-        DbDir = Path.GetFullPath(Path.Combine(string.IsNullOrWhiteSpace(options.DbDir) ? "." : options.DbDir, "pg_embed"));
-        BinariesDir = string.IsNullOrWhiteSpace(options.BinariesDir)
-            ? Path.Combine(DbDir, "binaries")
-            : Path.GetFullPath(options.BinariesDir);
-        InstanceDir = Path.Combine(DbDir, instanceId.ToString());
+        // Folders. Unchanged from 5.0 unless PGEMBED_CACHE_DIR is set or the instance is named: a named
+        // instance lives in the shared cache (unless DbDir is given), so tests, apps and the pgembed CLI meet.
+        var explicitDbDir = !string.IsNullOrWhiteSpace(options.DbDir);
+        DbDir = Path.GetFullPath(Path.Combine(explicitDbDir ? options.DbDir! : ".", "pg_embed"));
+        var useSharedCache = PgCache.IsConfigured || (options.InstanceName is not null && !explicitDbDir);
+
+        BinariesDir = !string.IsNullOrWhiteSpace(options.BinariesDir)
+            ? Path.GetFullPath(options.BinariesDir)
+            : useSharedCache
+                ? Path.Combine(PgCache.DefaultDirectory, "binaries")
+                : Path.Combine(DbDir, "binaries");
+
+        InstanceDir = options.InstanceName is null
+            ? Path.Combine(DbDir, (options.InstanceId ?? Guid.NewGuid()).ToString())
+            : explicitDbDir
+                ? Path.Combine(DbDir, options.InstanceName)
+                : Path.Combine(PgCache.DefaultDirectory, "instances", options.InstanceName);
         _processInstanceDir = InstanceDir;
         _processInstallDir = InstallDir;
 
@@ -105,7 +136,17 @@ public sealed class PgServer : IAsyncDisposable
 
     public string PgUser { get; }
 
-    public int PgPort { get; }
+    /// <summary>The port. When attaching to a server that was already running, the port that server uses.</summary>
+    public int PgPort { get; private set; }
+
+    /// <summary>The instance name, when <see cref="PgServerOptions.InstanceName"/> is set.</summary>
+    public string? InstanceName { get; }
+
+    /// <summary>
+    /// True when <see cref="StartAsync"/> attached to a server that was already running instead of starting
+    /// one. Such a server is not stopped on dispose, only by <see cref="StopAsync"/> or <see cref="KillAsync"/>.
+    /// </summary>
+    public bool IsAttached => _isRunning && !_ownsServer;
 
     public string PgDbName => DefaultDatabase;
 
@@ -172,22 +213,47 @@ public sealed class PgServer : IAsyncDisposable
             Directory.CreateDirectory(InstanceDir);
             _processInstanceDir = PathUtils.ToProcessSafePath(InstanceDir, nameof(PgServerOptions.DbDir));
 
-            await EnsureInstalledAsync(cancellationToken).ConfigureAwait(false);
-
-            if (_options.AddLocalUserAccessPermission)
+            // one process at a time sets up, starts or stops an instance
+            using (await AcquireInstanceLockAsync(cancellationToken).ConfigureAwait(false))
             {
-                await AddLocalUserAccessPermissionAsync(cancellationToken).ConfigureAwait(false);
-            }
+                CheckDataMajorVersion();
 
-            if (!File.Exists(Path.Combine(DataDir, "PG_VERSION")))
-            {
-                await InitDbAsync(cancellationToken).ConfigureAwait(false);
-            }
+                var running = PgInstanceStatus.Read(DataDir);
+                if (running.State != PgInstanceState.Stopped && _options.AttachIfRunning && running.Port is { } port)
+                {
+                    PgPort = port;
+                    _isRunning = true;
+                    _ownsServer = false;
+                    _logger.LogInformation("Attached to the Postgres server already running on port {Port} ({InstanceDir})", PgPort, InstanceDir);
+                    return;
+                }
 
-            WriteServerConfig();
-            await StartServerAsync(cancellationToken).ConfigureAwait(false);
+                if (running.State != PgInstanceState.Stopped)
+                {
+                    throw new PostgresEmbedException(
+                        $"A Postgres server (process {running.ProcessId}) is already running from '{DataDir}'. " +
+                        "Stop it first, or set AttachIfRunning to use it.");
+                }
+
+                await EnsureInstalledAsync(cancellationToken).ConfigureAwait(false);
+                CheckDataMajorVersion(); // again, now that a spec such as "latest" is resolved
+
+                if (_options.AddLocalUserAccessPermission)
+                {
+                    await AddLocalUserAccessPermissionAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                if (!File.Exists(Path.Combine(DataDir, "PG_VERSION")))
+                {
+                    await InitDbAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                WriteServerConfig();
+                await StartServerAsync(cancellationToken).ConfigureAwait(false);
+            }
 
             _isRunning = true;
+            _ownsServer = true;
             if (!_options.KeepRunningAfterExit)
             {
                 AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
@@ -202,25 +268,98 @@ public sealed class PgServer : IAsyncDisposable
     }
 
     /// <summary>
-    /// Stops the server and, depending on <see cref="PgServerOptions.ClearInstanceDirOnStop"/>, deletes the
-    /// instance folder. Calling it on a stopped server only performs the cleanup.
+    /// Stops the instance's server, whichever process started it, and then, depending on
+    /// <see cref="PgServerOptions.ClearInstanceDirOnStop"/>, deletes the instance folder. Calling it when no
+    /// server runs only performs the cleanup.
     /// </summary>
-    public async Task StopAsync(CancellationToken cancellationToken = default)
+    public Task StopAsync(CancellationToken cancellationToken = default) =>
+        StopCoreAsync(stopServer: true, cancellationToken);
+
+    /// <summary>
+    /// Stops the server only if this object started it: a server it attached to, or one it merely queried,
+    /// keeps running.
+    /// </summary>
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed) return;
+
+        await StopCoreAsync(stopServer: _ownsServer, CancellationToken.None).ConfigureAwait(false);
+        _disposed = true;
+        _lifecycleLock.Dispose();
+    }
+
+    /// <summary>
+    /// Force-kills the instance's server and its child processes, whichever process started it, without a
+    /// clean shutdown. A last resort: Postgres recovers on the next start, but open transactions are lost.
+    /// The instance folder is kept.
+    /// </summary>
+    public async Task KillAsync(CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        await _lifecycleLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (!Directory.Exists(InstanceDir)) return;
+
+            using (await AcquireInstanceLockAsync(cancellationToken).ConfigureAwait(false))
+            {
+                AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;
+                KillPostmaster();
+                _isRunning = false;
+                _ownsServer = false;
+            }
+
+            _logger.LogWarning("Postgres for {InstanceDir} was killed", InstanceDir);
+        }
+        finally
+        {
+            _lifecycleLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Whether a server is running from this instance's data folder, whichever process started it, with its
+    /// process id, port and start time. Reads Postgres's own <c>postmaster.pid</c>; a file left over from a
+    /// server that died counts as stopped.
+    /// </summary>
+    public Task<PgInstanceStatus> GetStatusAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(PgInstanceStatus.Read(DataDir));
+    }
+
+    private async Task StopCoreAsync(bool stopServer, CancellationToken cancellationToken)
     {
         if (_disposed) return;
 
         await _lifecycleLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            if (_isRunning)
+            if (stopServer && Directory.Exists(InstanceDir))
             {
-                AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;
-                await StopServerAsync(cancellationToken).ConfigureAwait(false);
-                _isRunning = false;
-                _logger.LogInformation("Postgres on port {Port} stopped", PgPort);
+                _processInstanceDir = PathUtils.ToProcessSafePath(InstanceDir, nameof(PgServerOptions.DbDir));
+
+                using (await AcquireInstanceLockAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;
+
+                    if (PgInstanceStatus.Read(DataDir).State != PgInstanceState.Stopped)
+                    {
+                        // a server this object did not start needs the binaries located first
+                        if (!_ownsServer) await LocateBinariesForStopAsync(cancellationToken).ConfigureAwait(false);
+
+                        await StopServerAsync(cancellationToken).ConfigureAwait(false);
+                        _logger.LogInformation("Postgres on port {Port} stopped", PgPort);
+                    }
+                }
             }
 
-            if (_clearInstanceDirOnStop)
+            _isRunning = false;
+            _ownsServer = false;
+
+            // never delete the folder of a server that still runs (one this object only attached to)
+            if (_clearInstanceDirOnStop && PgInstanceStatus.Read(DataDir).State == PgInstanceState.Stopped)
             {
                 DeleteDirectory(InstanceDir);
             }
@@ -231,13 +370,47 @@ public sealed class PgServer : IAsyncDisposable
         }
     }
 
-    public async ValueTask DisposeAsync()
-    {
-        if (_disposed) return;
+    private Task<FileLock> AcquireInstanceLockAsync(CancellationToken cancellationToken) =>
+        FileLock.AcquireAsync(Path.Combine(InstanceDir, ".lock"), LockTimeout, $"instance {InstanceName ?? InstanceDir}",
+            _logger, cancellationToken);
 
-        await StopAsync().ConfigureAwait(false);
-        _disposed = true;
-        _lifecycleLock.Dispose();
+    // Postgres cannot open data created by another major version. Checked before downloading anything.
+    private void CheckDataMajorVersion()
+    {
+        var versionFile = Path.Combine(DataDir, "PG_VERSION");
+        if (!File.Exists(versionFile)) return;
+        if (!PgVersionNumber.TryParse(PgVersion, out var wanted)) return; // "latest", until resolved
+
+        var dataMajor = File.ReadAllText(versionFile).Trim();
+        var wantedMajor = wanted.Parts.Length >= (wanted.Parts[0] >= 10 ? 1 : 2) ? wanted.Major : null;
+        if (wantedMajor is not null && wantedMajor != dataMajor)
+        {
+            throw new PostgresEmbedException(
+                $"The instance in '{InstanceDir}' holds data created by Postgres {dataMajor}, which Postgres " +
+                $"{wantedMajor} cannot open. Use version {dataMajor} for it, or remove the instance.");
+        }
+    }
+
+    // To stop a server started by another process, pg_ctl from an install of the data's major version is
+    // needed. Prefer one already in the cache, so stopping never waits on a download.
+    private async Task LocateBinariesForStopAsync(CancellationToken cancellationToken)
+    {
+        var dataMajor = File.Exists(Path.Combine(DataDir, "PG_VERSION"))
+            ? File.ReadAllText(Path.Combine(DataDir, "PG_VERSION")).Trim()
+            : null;
+        var artifact = PlatformInfo.ArtifactSuffix(_platform, _architecture);
+        var cached = dataMajor is null ? null : PgVersions.Match(dataMajor, CachedVersions(artifact)
+            .Where(v => File.Exists(Path.Combine(BinariesDir, $"postgres-{v}-{artifact}", "bin", ExecutableName("pg_ctl"))))
+            .ToList());
+
+        if (cached is not null)
+        {
+            _processInstallDir = Path.Combine(PathUtils.ToProcessSafePath(BinariesDir, nameof(PgServerOptions.BinariesDir)),
+                $"postgres-{cached}-{artifact}");
+            return;
+        }
+
+        await EnsureInstalledAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -282,9 +455,16 @@ public sealed class PgServer : IAsyncDisposable
         await ResolveVersionAsync(cancellationToken).ConfigureAwait(false);
         _processInstallDir = Path.Combine(processBinariesDir, Path.GetFileName(InstallDir));
 
-        if (!File.Exists(Path.Combine(PgBinDir, ExecutableName("pg_ctl"))))
+        if (File.Exists(Path.Combine(PgBinDir, ExecutableName("pg_ctl")))) return;
+
+        // One process downloads and extracts an install while others wait, then find it in place.
+        using (await FileLock.AcquireAsync($"{InstallDir}.lock", LockTimeout, $"the download of Postgres {PgVersion}",
+                   _logger, cancellationToken).ConfigureAwait(false))
         {
-            await InstallBinariesAsync(cancellationToken).ConfigureAwait(false);
+            if (!File.Exists(Path.Combine(PgBinDir, ExecutableName("pg_ctl"))))
+            {
+                await InstallBinariesAsync(cancellationToken).ConfigureAwait(false);
+            }
         }
     }
 

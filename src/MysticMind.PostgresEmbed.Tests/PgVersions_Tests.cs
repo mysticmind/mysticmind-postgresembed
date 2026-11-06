@@ -128,6 +128,7 @@ public class PgVersionsTests
             """);
 
         var ext = PgAvailableExtension.Parse(file);
+        Directory.Delete(dir, recursive: true);
 
         Assert.Equal("demo", ext.Name);
         Assert.Equal("1.2", ext.DefaultVersion);

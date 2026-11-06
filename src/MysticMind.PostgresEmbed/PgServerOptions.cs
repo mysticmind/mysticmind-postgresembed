@@ -24,22 +24,41 @@ public sealed record PgServerOptions
 
     /// <summary>
     /// Root directory under which a <c>pg_embed</c> folder is created. Defaults to the current directory.
-    /// Relative paths are resolved against the current directory.
+    /// Relative paths are resolved against the current directory. A named instance (<see cref="InstanceName"/>)
+    /// lives in the shared cache (<see cref="PgCache.DefaultDirectory"/>) unless this is set.
     /// </summary>
     public string? DbDir { get; init; }
 
     /// <summary>
-    /// Folder caching downloaded archives and extracted installs. Defaults to <c>pg_embed/binaries</c> under
-    /// <see cref="DbDir"/>. Point several servers, test projects or <see cref="DbDir"/>s at one folder to
-    /// download and extract each Postgres version only once.
+    /// Folder caching downloaded archives and extracted installs. Point several servers, test projects or
+    /// <see cref="DbDir"/>s at one folder to download and extract each Postgres version only once.
+    /// Defaults to <c>binaries</c> in the shared cache when <c>PGEMBED_CACHE_DIR</c> is set or for a named
+    /// instance kept in the shared cache, and to <c>pg_embed/binaries</c> under <see cref="DbDir"/> otherwise.
     /// </summary>
     public string? BinariesDir { get; init; }
 
     /// <summary>
     /// Instance id used as the instance folder name. Pass a fixed value to reuse an instance (data
-    /// included) across runs. When <c>null</c>, a new instance is created for each server.
+    /// included) across runs. When <c>null</c>, a new instance is created for each server. Prefer
+    /// <see cref="InstanceName"/>; set one or the other, not both.
     /// </summary>
     public Guid? InstanceId { get; init; }
+
+    /// <summary>
+    /// A readable, stable name for an instance kept across runs, for example <c>"app"</c>: letters, digits,
+    /// <c>.</c>, <c>_</c> and <c>-</c>, starting with a letter or digit, up to 63 characters. It lives in
+    /// <c>instances/&lt;name&gt;</c> in the shared cache (<see cref="PgCache.DefaultDirectory"/>), unless
+    /// <see cref="DbDir"/> is set, so tests, apps and the pgembed CLI on one machine meet at the same
+    /// instance. Its data is kept when the server stops.
+    /// </summary>
+    public string? InstanceName { get; init; }
+
+    /// <summary>
+    /// When the instance's server is already running, for example started by the pgembed CLI or another
+    /// test run, attach to it instead of starting another one. On by default. A server is only stopped on
+    /// dispose by the process that started it; <see cref="PgServer.StopAsync"/> stops it either way.
+    /// </summary>
+    public bool AttachIfRunning { get; init; } = true;
 
     /// <summary>TCP port to listen on. <c>0</c> (the default) picks a free port.</summary>
     public int Port { get; init; }
@@ -58,7 +77,8 @@ public sealed record PgServerOptions
 
     /// <summary>
     /// Delete the instance folder when the server stops. When <c>null</c> (the default), the folder is
-    /// deleted for ephemeral instances (no <see cref="InstanceId"/>) and kept for named instances.
+    /// deleted for ephemeral instances (no <see cref="InstanceId"/> or <see cref="InstanceName"/>) and kept
+    /// for the others. A folder is never deleted while a server still runs from it.
     /// </summary>
     public bool? ClearInstanceDirOnStop { get; init; }
 
