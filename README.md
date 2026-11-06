@@ -1,3 +1,5 @@
+<img src="https://raw.githubusercontent.com/mysticmind/mysticmind-postgresembed/master/assets/icon.png" alt="MysticMind.PostgresEmbed icon: an elephant standing on a window of code" width="96">
+
 # MysticMind.PostgresEmbed _Postgres embedded database equivalent for .Net applications_ [![Build status](https://github.com/mysticmind/mysticmind-postgresembed/actions/workflows/ci.yaml/badge.svg)](https://github.com/mysticmind/mysticmind-postgresembed/actions/workflows/ci.yaml) [![NuGet Version](https://badgen.net/nuget/v/mysticmind.postgresembed)](https://www.nuget.org/packages/MysticMind.PostgresEmbed/)
 
 Run a real PostgreSQL server, extensions included, from .NET code and tests on Windows, Linux (glibc and Alpine/musl) and macOS. No Docker and no local Postgres install required.
