@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="../README.md" />
+    <File Path="../global.json" />
+    <File Path="../nuget.config" />
+  </Folder>
+  <Project Path="MysticMind.PostgresEmbed.Tests/MysticMind.PostgresEmbed.Tests.csproj" />
+  <Project Path="MysticMind.PostgresEmbed/MysticMind.PostgresEmbed.csproj" />
+</Solution>

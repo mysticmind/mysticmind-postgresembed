@@ -3,9 +3,8 @@ name: NuGet Manual Publish
 on: [workflow_dispatch]
 
 env:
-  config: Release
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
-  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+  DOTNET_NOLOGO: 1
 
 jobs:
   publish_job:
@@ -13,20 +12,16 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
-      - name: Install .NET 8.0.x
-        uses: actions/setup-dotnet@v4
+      - name: Install .NET
+        uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: 9.0.x
+          global-json-file: global.json
 
       - name: Run Pack
-        run: dotnet pack src/MysticMind.PostgresEmbed/MysticMind.PostgresEmbed.csproj -c Release
-        shell: bash
+        run: dotnet pack src/MysticMind.PostgresEmbed/MysticMind.PostgresEmbed.csproj -c Release -o artifacts
 
+      # the matching .snupkg symbol package is pushed along with each .nupkg
       - name: Publish to NuGet
-        run: |
-          find . -name '*.nupkg' -exec dotnet nuget push "{}" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_API_KEY }} --skip-duplicate \;
-          # find . -name '*.snupkg' -exec dotnet nuget push "{}" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_API_KEY }} \;
-        shell: bash
-
+        run: dotnet nuget push "artifacts/*.nupkg" -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_API_KEY }} --skip-duplicate
