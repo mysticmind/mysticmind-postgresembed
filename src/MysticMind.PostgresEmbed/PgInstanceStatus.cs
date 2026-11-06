@@ -66,14 +66,41 @@ public sealed record PgInstanceStatus(PgInstanceState State, int? ProcessId, int
     }
 
     // A PID left in postmaster.pid can be reused by an unrelated process after a crash or reboot.
-    private static bool IsPostgresProcess(int pid)
+    internal static bool IsPostgresProcess(int pid)
     {
         try
         {
             using var process = Process.GetProcessById(pid);
-            return !process.HasExited && process.ProcessName.Contains("postgres", StringComparison.OrdinalIgnoreCase);
+            return !process.HasExited
+                   && process.ProcessName.Contains("postgres", StringComparison.OrdinalIgnoreCase)
+                   && !IsZombie(pid);
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            return false;
+        }
+    }
+
+    // On Linux, a server that died but was never reaped stays in the process table as a zombie, which
+    // still looks alive by PID and name. That happens in containers whose first process does not reap
+    // orphans (the server's parent, pg_ctl, has exited). The state is the field after the ")" that
+    // closes the command name in /proc/<pid>/stat: Z is a zombie, X dead.
+    private static bool IsZombie(int pid)
+    {
+        if (!OperatingSystem.IsLinux()) return false;
+
+        try
+        {
+            var stat = File.ReadAllText($"/proc/{pid}/stat");
+            var close = stat.LastIndexOf(')');
+            var state = close >= 0 && close + 2 < stat.Length ? stat[close + 2] : ' ';
+            return state is 'Z' or 'X';
+        }
+        catch (IOException)
+        {
+            return true; // gone between the checks
+        }
+        catch (UnauthorizedAccessException)
         {
             return false;
         }

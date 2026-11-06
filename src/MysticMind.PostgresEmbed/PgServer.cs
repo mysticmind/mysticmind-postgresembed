@@ -308,6 +308,22 @@ public sealed class PgServer : IAsyncDisposable
                 KillPostmaster();
                 _isRunning = false;
                 _ownsServer = false;
+
+                // Once the server is dead, remove its postmaster.pid: where the killed process lingers as an
+                // unreaped zombie (containers without an init process), Postgres would otherwise refuse to
+                // start again, believing the server still runs.
+                var pidFile = Path.Combine(DataDir, "postmaster.pid");
+                if (File.Exists(pidFile) && PgInstanceStatus.Read(DataDir).State == PgInstanceState.Stopped)
+                {
+                    try
+                    {
+                        File.Delete(pidFile);
+                    }
+                    catch (IOException ex)
+                    {
+                        _logger.LogDebug(ex, "Could not remove {PidFile}", pidFile);
+                    }
+                }
             }
 
             _logger.LogWarning("Postgres for {InstanceDir} was killed", InstanceDir);
@@ -778,7 +794,13 @@ public sealed class PgServer : IAsyncDisposable
 
             using var postmaster = Process.GetProcessById(pid);
             postmaster.Kill(entireProcessTree: true);
-            postmaster.WaitForExit(5000);
+
+            // poll rather than WaitForExit: a killed server that lingers as an unreaped zombie never
+            // "exits" for a process that is not its parent
+            for (var waited = 0; waited < 5000 && PgInstanceStatus.IsPostgresProcess(pid); waited += 50)
+            {
+                Thread.Sleep(50);
+            }
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException or System.ComponentModel.Win32Exception)
         {
