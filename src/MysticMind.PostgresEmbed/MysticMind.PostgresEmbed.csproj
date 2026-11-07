@@ -35,9 +35,40 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="$(PackageReadmePath)" Pack="true" PackagePath="\README.md" />
     <None Include="..\..\assets\icon.png" Pack="true" PackagePath="\" />
   </ItemGroup>
+
+  <!-- nuget.org shows raw HTML as text, so the packed README leaves out the HTML logo above the title (nuget.org
+       shows the package icon there); the rest is the repository README unchanged -->
+  <PropertyGroup>
+    <PackageReadmePath>$(BaseIntermediateOutputPath)package-readme/README.md</PackageReadmePath>
+  </PropertyGroup>
+
+  <Target Name="WritePackageReadme" BeforeTargets="_GetPackageFiles;GenerateNuspec">
+    <WritePackageReadme Source="$(MSBuildThisFileDirectory)../../README.md" Destination="$(PackageReadmePath)" />
+  </Target>
+
+  <!-- an inline task, not WriteLinesToFile: MSBuild turns backslashes in lines into slashes outside Windows -->
+  <UsingTask TaskName="WritePackageReadme" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Source ParameterType="System.String" Required="true" />
+      <Destination ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        var text = File.ReadAllText(Source);
+        if (text.StartsWith("<img ")) text = text.Substring(text.IndexOf("# "));
+        if (text.Contains("<img ") || text.Contains("<a "))
+        {
+            Log.LogError("README.md has HTML that nuget.org shows as text; use Markdown");
+            return false;
+        }
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(Destination)));
+        if (!File.Exists(Destination) || File.ReadAllText(Destination) != text) File.WriteAllText(Destination, text);
+      ]]></Code>
+    </Task>
+  </UsingTask>
 
   <ItemGroup>
     <InternalsVisibleTo Include="MysticMind.PostgresEmbed.Tests" />

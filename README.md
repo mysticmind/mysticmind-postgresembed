@@ -8,8 +8,9 @@ By default, this library uses the minimal binaries published by [zonkyio/embedde
 
 The library detects the OS and CPU architecture and downloads the matching binaries.
 
-If you have benefitted from this library and it has saved you a bunch of time, please feel free to sponsor my work!<br>
-<a href="https://github.com/sponsors/mysticmind" target="_blank"><img height="30" style="border:0px;height:36px;" src="https://img.shields.io/static/v1?label=GitHub Sponsor&message=%E2%9D%A4&logo=GitHub" border="0" alt="GitHub Sponsor" /></a>
+If you have benefitted from this library and it has saved you a bunch of time, please feel free to sponsor my work!
+
+[![GitHub Sponsor](https://img.shields.io/static/v1?label=GitHub%20Sponsor&message=%E2%9D%A4&logo=GitHub)](https://github.com/sponsors/mysticmind)
 
 ## Requirements
 
