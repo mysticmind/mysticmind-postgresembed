@@ -558,7 +558,8 @@ public sealed class PgServer : IAsyncDisposable
     private async Task InstallBinariesAsync(CancellationToken cancellationToken)
     {
         var downloader = new PostgresBinaryDownloader(
-            PgVersion, BinariesDir, _platform, _architecture, _options.MavenRepo, _options.HttpClient, _logger, _options.InstallProgress);
+            PgVersion, BinariesDir, _platform, _architecture, _options.MavenRepo, _options.HttpClient, _logger, _options.InstallProgress,
+            _options.RequireChecksum);
 
         string archivePath;
         try

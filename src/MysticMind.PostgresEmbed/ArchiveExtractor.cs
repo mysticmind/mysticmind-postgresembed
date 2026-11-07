@@ -117,8 +117,10 @@ internal static class ArchiveExtractor
     private static void CreateLink(string root, string linkPath, string target)
     {
         // links that point outside of the extracted tree are not needed to run Postgres; skip them
+        // compared with a trailing separator: a sibling folder whose name starts like root is outside it
         var resolvedTarget = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(linkPath)!, target));
-        if (!resolvedTarget.StartsWith(root, StringComparison.Ordinal)) return;
+        var rootWithSeparator = Path.EndsInDirectorySeparator(root) ? root : root + Path.DirectorySeparatorChar;
+        if (!resolvedTarget.StartsWith(rootWithSeparator, StringComparison.Ordinal) && resolvedTarget != root) return;
 
         if (File.Exists(linkPath)) File.Delete(linkPath);
 

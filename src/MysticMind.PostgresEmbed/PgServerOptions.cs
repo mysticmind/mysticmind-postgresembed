@@ -136,4 +136,10 @@ public sealed record PgServerOptions
     /// only when a download or install actually happens, so a test runner or CLI can show why a first run is slow.
     /// </summary>
     public IProgress<PgInstallProgress>? InstallProgress { get; init; }
+
+    /// <summary>
+    /// Fail a download whose repository publishes no SHA-256 for it, instead of installing it unverified with a
+    /// warning. Maven Central publishes one for every archive; a mirror might not.
+    /// </summary>
+    public bool RequireChecksum { get; init; }
 }

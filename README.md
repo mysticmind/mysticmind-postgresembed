@@ -152,6 +152,7 @@ await server.StartAsync();
 | `HttpClient` | shared client | Configure proxies or custom handlers |
 | `Logger` | none | Any `Microsoft.Extensions.Logging` logger |
 | `InstallProgress` | none | `IProgress<PgInstallProgress>`: download bytes, checksum check and extraction, reported only when a download or install happens |
+| `RequireChecksum` | `false` | Fail a download whose repository publishes no SHA-256, instead of installing it unverified |
 | `Platform` / `Architecture` | detected | Override detection |
 
 ### Extensions

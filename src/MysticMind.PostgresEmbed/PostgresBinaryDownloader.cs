@@ -16,7 +16,8 @@ internal sealed class PostgresBinaryDownloader(
     string mavenRepo,
     HttpClient? httpClient,
     ILogger logger,
-    IProgress<PgInstallProgress>? progress = null)
+    IProgress<PgInstallProgress>? progress = null,
+    bool requireChecksum = false)
 {
     public async Task<string> DownloadAsync(CancellationToken cancellationToken)
     {
@@ -49,6 +50,13 @@ internal sealed class PostgresBinaryDownloader(
 
         if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
+            if (requireChecksum)
+            {
+                File.Delete(jarPath);
+                throw new PostgresEmbedException(
+                    $"{Path.GetFileName(jarPath)} has no published SHA-256 ({url}.sha256), so it cannot be verified; the download was deleted.");
+            }
+
             logger.LogWarning("No published SHA-256 at {Url}.sha256; {Jar} was not verified", url, Path.GetFileName(jarPath));
             return;
         }
