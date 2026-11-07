@@ -15,7 +15,8 @@ internal sealed class PostgresBinaryDownloader(
     Architecture architecture,
     string mavenRepo,
     HttpClient? httpClient,
-    ILogger logger)
+    ILogger logger,
+    IProgress<PgInstallProgress>? progress = null)
 {
     public async Task<string> DownloadAsync(CancellationToken cancellationToken)
     {
@@ -29,7 +30,9 @@ internal sealed class PostgresBinaryDownloader(
         if (!File.Exists(jarPath))
         {
             var url = $"{mavenRepo.TrimEnd('/')}/io/zonky/test/postgres/{artifact}/{pgVersion}/{artifact}-{pgVersion}.jar";
-            await FileDownloader.DownloadAsync(httpClient, url, jarPath, logger, cancellationToken).ConfigureAwait(false);
+            var item = $"PostgreSQL {pgVersion} ({PlatformInfo.ArtifactSuffix(platform, architecture)})";
+            await FileDownloader.DownloadAsync(httpClient, url, jarPath, logger, cancellationToken, progress, item).ConfigureAwait(false);
+            progress?.Report(new PgInstallProgress(PgInstallStep.Verify, item));
             await VerifyPublishedChecksumAsync(url, jarPath, cancellationToken).ConfigureAwait(false);
         }
 

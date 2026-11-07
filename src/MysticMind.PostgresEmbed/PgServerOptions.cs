@@ -130,4 +130,10 @@ public sealed record PgServerOptions
 
     /// <summary>Logger for setup progress and server lifecycle messages.</summary>
     public ILogger? Logger { get; init; }
+
+    /// <summary>
+    /// Receives install progress: download bytes as they arrive, checksum verification and extraction. Reported
+    /// only when a download or install actually happens, so a test runner or CLI can show why a first run is slow.
+    /// </summary>
+    public IProgress<PgInstallProgress>? InstallProgress { get; init; }
 }
