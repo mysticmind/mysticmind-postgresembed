@@ -39,7 +39,9 @@ internal static class FileDownloader
         string url,
         string destinationPath,
         ILogger logger,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IProgress<PgInstallProgress>? progress = null,
+        string? item = null)
     {
         client ??= SharedClient;
         var tempPath = $"{destinationPath}.{Guid.NewGuid():N}.tmp";
@@ -63,7 +65,15 @@ internal static class FileDownloader
             await using (var source = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false))
             await using (var target = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, useAsync: true))
             {
-                await source.CopyToAsync(target, cancellationToken).ConfigureAwait(false);
+                if (progress is null)
+                {
+                    await source.CopyToAsync(target, cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    await CopyWithProgressAsync(source, target, response.Content.Headers.ContentLength, progress,
+                        item ?? Path.GetFileName(destinationPath), cancellationToken).ConfigureAwait(false);
+                }
             }
 
             File.Move(tempPath, destinationPath, overwrite: true);
@@ -73,6 +83,30 @@ internal static class FileDownloader
         {
             TryDelete(tempPath);
         }
+    }
+
+    // reports at most ten times a second, plus the start and the end
+    private static async Task CopyWithProgressAsync(
+        Stream source, Stream target, long? total, IProgress<PgInstallProgress> progress, string item, CancellationToken cancellationToken)
+    {
+        var buffer = new byte[81920];
+        long done = 0;
+        var lastReport = System.Diagnostics.Stopwatch.StartNew();
+        progress.Report(new PgInstallProgress(PgInstallStep.Download, item, 0, total));
+
+        int read;
+        while ((read = await source.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
+        {
+            await target.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
+            done += read;
+            if (lastReport.ElapsedMilliseconds >= 100)
+            {
+                progress.Report(new PgInstallProgress(PgInstallStep.Download, item, done, total));
+                lastReport.Restart();
+            }
+        }
+
+        progress.Report(new PgInstallProgress(PgInstallStep.Download, item, done, total ?? done));
     }
 
     private static void TryDelete(string path)

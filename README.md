@@ -151,6 +151,7 @@ await server.StartAsync();
 | `DeleteFolderRetryCount` / `DeleteFolderInitialDelay` | 5 / 16 ms | Retries when deleting folders that are briefly locked; the delay doubles each time |
 | `HttpClient` | shared client | Configure proxies or custom handlers |
 | `Logger` | none | Any `Microsoft.Extensions.Logging` logger |
+| `InstallProgress` | none | `IProgress<PgInstallProgress>`: download bytes, checksum check and extraction, reported only when a download or install happens |
 | `Platform` / `Architecture` | detected | Override detection |
 
 ### Extensions

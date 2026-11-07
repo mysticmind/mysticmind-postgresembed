@@ -558,7 +558,7 @@ public sealed class PgServer : IAsyncDisposable
     private async Task InstallBinariesAsync(CancellationToken cancellationToken)
     {
         var downloader = new PostgresBinaryDownloader(
-            PgVersion, BinariesDir, _platform, _architecture, _options.MavenRepo, _options.HttpClient, _logger);
+            PgVersion, BinariesDir, _platform, _architecture, _options.MavenRepo, _options.HttpClient, _logger, _options.InstallProgress);
 
         string archivePath;
         try
@@ -578,7 +578,7 @@ public sealed class PgServer : IAsyncDisposable
         {
             await _downloadRetry
                 .ExecuteAsync(
-                    async ct => await extension.DownloadAsync(_options.HttpClient, _logger, ct).ConfigureAwait(false),
+                    async ct => await extension.DownloadAsync(_options.HttpClient, _logger, ct, _options.InstallProgress).ConfigureAwait(false),
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -589,6 +589,7 @@ public sealed class PgServer : IAsyncDisposable
         try
         {
             _logger.LogInformation("Extracting {Archive} to {InstallDir}", archivePath, InstallDir);
+            _options.InstallProgress?.Report(new PgInstallProgress(PgInstallStep.Extract, $"PostgreSQL {PgVersion}"));
             ArchiveExtractor.ExtractTarArchive(archivePath, stagingDir);
 
             foreach (var extension in extensions)
