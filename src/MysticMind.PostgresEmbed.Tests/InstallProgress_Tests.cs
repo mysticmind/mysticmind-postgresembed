@@ -70,3 +70,34 @@ public class InstallProgressTests
         }
     }
 }
+
+public class ChecksumTests
+{
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    [Fact]
+    public async Task A_download_without_a_published_checksum_fails_when_one_is_required()
+    {
+        var jar = new byte[1024];
+        var handler = new FakeHttpHandler()
+            .On(".jar.sha256", () => new HttpResponseMessage(System.Net.HttpStatusCode.NotFound))
+            .On(".jar", () => new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new ByteArrayContent(jar) });
+        var binaries = Path.Combine(Path.GetTempPath(), $"checksum-{Guid.NewGuid():N}");
+        try
+        {
+            await using var server = new PgServer(new PgServerOptions
+            {
+                PgVersion = "17.6.0", BinariesDir = binaries, MavenRepo = "https://mirror.test/maven2",
+                HttpClient = new HttpClient(handler), RequireChecksum = true, DownloadRetryCount = 1
+            });
+
+            var ex = await Assert.ThrowsAsync<PostgresEmbedException>(() => server.InstallAsync(Ct));
+            Assert.Contains("no published SHA-256", ex.Message);
+            Assert.Empty(Directory.EnumerateFiles(binaries, "*.jar"));
+        }
+        finally
+        {
+            if (Directory.Exists(binaries)) Directory.Delete(binaries, recursive: true);
+        }
+    }
+}
