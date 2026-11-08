@@ -58,3 +58,33 @@ jobs:
           adduser -D tester
           chown -R tester "$GITHUB_WORKSPACE"
           su tester -c "cd '$GITHUB_WORKSPACE' && dotnet test --project $TEST_PROJECT --framework net11.0"
+
+  # The docs site shows code from samples/: the samples run here as tests, and the site must build (VitePress
+  # fails on a dead link or a missing snippet).
+  docs:
+    name: Docs (samples and site)
+    runs-on: ubuntu-latest
+    env:
+      PGEMBED_CACHE_DIR: ${{ github.workspace }}/.pgembed-cache
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+          dotnet-version: 10.0.x
+
+      - name: Run the samples
+        run: dotnet test --project samples/MysticMind.PostgresEmbed.Samples/MysticMind.PostgresEmbed.Samples.csproj -c Release
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Build the site
+        run: |
+          npm ci
+          npm run docs:build

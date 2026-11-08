@@ -1,0 +1,56 @@
+name: Deploy Docs
+
+# Builds the documentation site from master and deploys it to GitHub Pages:
+# https://mysticmind.github.io/mysticmind-postgresembed/
+# It runs only on a manual dispatch (Actions > Deploy Docs > Run workflow), so docs merged to master go live
+# when a release is published, not before.
+on:
+  workflow_dispatch:
+
+# allow the GITHUB_TOKEN to deploy to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# one deployment at a time; do not cancel one in progress
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@v5
+        with:
+          ref: master
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/configure-pages@v5
+
+      - name: Build the site
+        run: |
+          npm ci
+          npm run docs:build
+
+      - name: Upload the Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/.vitepress/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

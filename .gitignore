@@ -257,3 +257,7 @@ pg_embed
 
 **/.DS_Store
 src/MysticMind.PostgresEmbed.sln.DotSettings
+
+# docs site
+docs/.vitepress/dist/
+docs/.vitepress/cache/
