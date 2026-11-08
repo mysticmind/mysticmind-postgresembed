@@ -6,4 +6,5 @@
   </Folder>
   <Project Path="MysticMind.PostgresEmbed.Tests/MysticMind.PostgresEmbed.Tests.csproj" />
   <Project Path="MysticMind.PostgresEmbed/MysticMind.PostgresEmbed.csproj" />
+  <Project Path="../samples/MysticMind.PostgresEmbed.Samples/MysticMind.PostgresEmbed.Samples.csproj" />
 </Solution>
